@@ -1,7 +1,7 @@
 #######################################################################################
 # 
-# Kathryn Peebles
-# 2017-11-19
+# Author: Kathryn Peebles
+# Date:   19 November 2017
 # aging: function to increment age of study participants by 30 days at each time step.
 #
 # input:  Vector of female ages at time t - 1.

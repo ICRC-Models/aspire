@@ -6,7 +6,7 @@
 if(grepl(pattern = "MXL24705MR", Sys.info()['nodename'])) {
   setwd("C:/Users/kpeebles/Dropbox/UW Epi Program/RB/ASPIRE/ring-eff")
 } else {
-  setwd("~/Dropbox/UW Epi Program/RB/ASPIRE/ring-eff")
+  setwd("~/Documents/code/aspire")
 }
 
 ## Attach packages
@@ -21,12 +21,9 @@ sapply(source_files, function(x) source(x))
 
 ## Read and load data
 suppressWarnings(load_data())
-load(paste0(getwd(), "/data/part_dt.RData"))
-load(paste0(getwd(), "/data/inf_obs.RData"))
-load(paste0(getwd(), "/data/f_dt.RData"))
 
 ## Load parameters
-params_dt <- as.data.table(read_excel(paste0(getwd(), "/parameters.xlsx"), range = "A1:B20", col_names = T))
+params_dt <- as.data.table(read_excel(paste0(getwd(), "/parameters/parameters.xlsx"), range = "A1:B20", col_names = T))
 params <- lapply(params_dt[, name], function(x) { x = params_dt[name == x, value] })
 names(params) <- params_dt[, name]
 
@@ -36,4 +33,4 @@ age_mix_mat_cond <- sapply(1:ncol(age_mix_mat), function(x) {
 })
 rownames(age_mix_mat_cond) <- colnames(age_mix_mat_cond) <- colnames(age_mix_mat)
 
-n_males   <- part_dt[, .(sum(sum(one_p), sum(two_p) * 2))]
+n_males   <- f_dt[, sum(n_part)]

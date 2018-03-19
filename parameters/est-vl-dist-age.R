@@ -1,53 +1,55 @@
-## Analyze data from Linkages study to estimate the distribution of viral load among males by age. Data were shared in email dated 2017-12-12 from Torin Schaafsma, and are stored on ICRC home drive.
+## Purpose: Estimate age-specific viral load distribution among men. Huerga, et al., 2016 present data from a population-based survey employing cluster probability sampling in KZN, South Africa in 2013. Individuals ages 15-59 were eligible for the study. Viral load distributions are presented by gender and age separately. We assume the ratio of female-to-male engage in care is the same across age categories to infer the male-specific age-distribution of viral load.
+## Date:    15 December 2017
+## Author:  Kathryn Peebles
 
-setwd("C:/Users/kpeebles/Dropbox/UW Epi Program/RB/sources-eff-dilution-ring/ring-eff")
+setwd("~/Documents/code/aspire")
 
-load("H:/linkages_vl.RDATA")
+## Specify viral load categories in Huerga
+vl_cats <- c("<100", "100-999", "1000-9999", "10000-99999", "100000-999999")
 
-library(data.table)
+## Viral load distribution by gender
+g_vl <- matrix(data = c(551, 87, 154, 171, 101, # women
+                        139, 19, 43, 70, 60),   # men
+               nrow = length(vl_cats),
+               dimnames = list(vl_cats, c("f", "m")))
 
-## Subset data from males
-m_vl <- as.data.table(linkages_viral_loads[!linkages_viral_loads$female, ])
+## Viral load distribution by age
+age_vl <- list("15-24" = c(66, 20, 52, 66, 38),
+               "25-34" = c(202, 44, 77, 96, 68),
+               "35-44" = c(235, 26, 40, 50, 30),
+               "45-59" = c(187, 16, 28, 29, 25))
 
-## Groups ages in same age groups as are used in aspire model
-age_mix_mat <- read_excel(paste0(getwd(), "/data/age-mixing-matrix.xlsx"),
-                          range = "B1:I9",
-                          col_names = T)
+## Estimate proportion of each viral load category that is constituted by men
+prop_m <- sapply(1:nrow(g_vl), function(x) { g_vl[x, "m"]/sum(g_vl[x, ]) })
 
-age_cats <- names(age_mix_mat)
+## Assuming the proportion of men in each viral load category applies to all age groups, estimate the number of men in each age and viral load category.
+m_vl <- lapply(names(age_vl), function(x) { age_vl[[x]] * prop_m })
+m_vl_dt <- do.call(cbind, m_vl)
+colnames(m_vl_dt) <- names(age_vl)
+rownames(m_vl_dt) <- vl_cats
 
-m_vl[, age_cat := age_cats[findInterval(x = m_vl$age, vec = c(15, 20, 25, 30, 35, 40, 45, 50))]] # age categories (15-19, 20-24, 25-29, 30-34, 35-39, 40-44, 45-49, 50+)
+## Estimate proportion of males in each viral load category by age
+m_vl_dist <- sapply(1:ncol(m_vl_dt), function(x) {
+  sapply(1:nrow(m_vl_dt), function(y) { round(m_vl_dt[y, x]/sum(m_vl_dt[, x]), 2) })
+})
+colnames(m_vl_dist) <- names(age_vl)
+rownames(m_vl_dist) <- vl_cats
 
-## Try larger age groups
-age_cats_wide <- c("15-24", "25-34", "35-44", "45-59")
-m_vl[, age_cat_wide := age_cats_wide[findInterval(x = m_vl$age, vec = c(15, 25, 35, 45))]]
+## Check that column proportions sum to 1
+sapply(1:ncol(m_vl_dist), function(x) sum(m_vl_dist[, x]))
 
-## Create viral load categories
-vl_cats <- c("1-49", "50-1500", "1501-10000", "10001-50000", ">50000")
+## Age categories in Huerga do not match male categories in age-mixing matrix. Create new matrix with columns "min" and "max" and age categories corresponding to those used in model.
+vl_dist <- cbind(c(1,  100, 1000, 10000, 100000), # minimum vl
+                 c(99, 999, 9999, 99999, 999999), # maximum vl
+                 m_vl_dist[, "15-24"], # age group 20-24
+                 m_vl_dist[, "25-34"], # age group 25-29
+                 m_vl_dist[, "25-34"], # age group 30-34
+                 m_vl_dist[, "35-44"], # age group 35-39
+                 m_vl_dist[, "35-44"], # age group 40-44,
+                 m_vl_dist[, "45-59"], # age group 45-49,
+                 m_vl_dist[, "45-59"]) # age group 50+
+colnames(vl_dist) <- c("min", "max", "20-24", "25-29", "30-34", "35-39", "40-44", "45-49", "50+")
+rownames(vl_dist) <- NULL
 
-## Baseline viral load categories
-m_vl[, vl_cat_bl := vl_cats[findInterval(x = m_vl$baseline_viral_load, vec = c(0, 50, 1501, 10001, 50001))]]
-
-## Crosstab of age category and viral load category
-with(m_vl, table(age_cat, vl_cat_bl))
-with(m_vl, table(age_cat_wide, vl_cat_bl))
-# Crosstab shows small numbers. May be better to estimate a linear relationship between age and viral load, and modify model function to use the linear function.
-
-## Scatterplot of age and log10 viral load
-m_vl[, log_vl := log10(baseline_viral_load)]
-m_vl[, plot(x = age, y = log_vl, type = "p", pch = 19)]
-
-## For regression estimate, reassign 0 values to 10
-m_vl[, log_vl := ifelse(log_vl == -Inf, 1, log_vl)]
-m_vl[, lm(log_vl ~ age)]
-
-m_vl[age < 60, lm(log_vl ~ age)]
-
-m_vl[, lines(x = age, y = 4.72286 - 0.02239 * age, col = "red", lwd = 2)]
-m_vl[age < 60, lines(x = age, y = 4.80883 - 0.02491 * age, col = "blue", lwd = 2)]
-
-abline(h = c(log10(50), log10(1501), log10(10001), log10(50001)), col = "grey")
-
-## Set maximum viral load value
-## Look at distribution of viral loads above 50,000 to determine reasonable maximum value/distribution from which to draw vl's above 50,000
-m_vl[, max(c(baseline_viral_load, exit_viral_load), na.rm = T)]
+## Save viral load distribution matrix
+save(vl_dist, file = paste0(getwd(), "/data-public/vl_dist.RDATA"))

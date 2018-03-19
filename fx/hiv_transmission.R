@@ -1,53 +1,56 @@
-hiv_transmission <- function(dt, t, l) {
-  ## TO DO: Add HSV2 infection
+#######################################################################################
+# 
+# Author: Kathryn Peebles
+# Date:   15 March 2018
+# hiv_transmission: Function to calculate HIV transmission risk across all acts with all partners in monthly time intervals. HIV transmission is assigned according to binomial draw with probability equal to cumulative risk.
+#
+# input:  Subsets of study_dt, m_dt, f_dt
+# output: Vector of 0/1 values indicating HIV status
+# 
+#######################################################################################
+
+hiv_transmission <- function(s_dt, m_dt, f_dt, t, l) {
+  ## TO DO: Ask EB: Baseline STI status is included and treated as a fixed characteristic throughout simulations, though many STIs are curable. Which STIs are included in baseSTD variable? Hughes, 2012 has RRs for STIs: 2.14 for HSV, 2.65 for GUD, 2.57 for Trich, 3.63 for cervicitis or vaginitis. Have used generic RR of 2.5.
   ## TO DO: Make all of the relative risks parameters that are loaded from elsewhere.
+  dt <- merge(x = m_dt, y = f_dt, by = "id", all.y = F)
   
-  # Partner 1
-  # p10: cumulative probability of not being infected by unprotected vaginal acts
-  dt[!is.na(vl_p1) & vl_p1 > 0 & arm == 1, p10 := (1 - l) ^ (n_acts_vi_no_condom * exp(log(2.89) * (vl_p1 - 4.0) + log(0.96) * (age - 35) + log(0.25) * adh))]
+  dt <- merge(x = dt, y = s_dt, by = "id", all.y = F)
   
-  dt[!is.na(vl_p1) & vl_p1 > 0 & arm == 0, p10 := (1 - l) ^ (n_acts_vi_no_condom * exp(log(2.89) * (vl_p1 - 4.0) + log(0.96) * (age - 35)))]
+  # Assign number of acts by randomly taking floor or ceiling of average monthly per-partner acts (pp_acts)
+  dt[, acts := ifelse(test = rbinom(n = nrow(dt), size = 1, prob = 0.5) == 1,
+                      yes  = ceiling(pp_acts),
+                      no   = floor(pp_acts))]
   
-  # p11: cumulative probability of not being infected by protected vaginal acts
-  dt[!is.na(vl_p1) & vl_p1 > 0 & arm == 1, p11 := (1 - l) ^ (n_acts_vi_condom * exp(log(2.89) * (vl_p1 - 4.0) + log(0.96) * (age - 35) + log(0.25) * adh + log(0.22)))]
+  # Expand table to include one row per act
+  dt <- dt[rep(1:.N, acts)][, act_id := 1:.N, by = id]
   
-  dt[!is.na(vl_p1) & vl_p1 > 0 & arm == 0, p11 := (1 - l) ^ (n_acts_vi_condom * exp(log(2.89) * (vl_p1 - 4.0) + log(0.96) * (age - 35) + log(0.22)))]
+  # Assign to each act: type of act (ai/vi) and condom use (condom/no condom). For estimation of risk, replace NA values of adh (currently assigned to those in placebo arm) with 0
+  dt[, `:=`(ai     = rbinom(n = 1:nrow(dt), size = 1, prob = prob_ai),
+            condom = rbinom(n = 1:nrow(dt), size = 1, prob = prob_condom),
+            adh    = ifelse(test = is.na(adh), yes = 0, no = adh))]
+
+  # Estimate per-act risk of not acquiring HIV
+  dt[, risk_no_inf := (1 - l) ^ exp(log(2.89)  * (vl - 4.0) +
+                                    log(0.94)  * (f_age - 35) +
+                                    log(0.25)  * adh * arm +
+                                    log(0.22)  * condom +
+                                    log(17.25) * ai +
+                                    log(2.5)   * sti)]
   
-  # p12: cumulative probability of not being infected by unprotected anal acts
-  dt[!is.na(vl_p1) & vl_p1 > 0, p12 := (1 - l) ^ (n_acts_ai_no_condom * exp(log(2.89) * (vl_p1 - 4.0) + log(0.96) * (age - 35) + log(17.25)))]
+  # Estimate cumulative risk of acquiring HIV over all acts
+  risk <- dt[, 1 - Reduce(f = `*`, x = risk_no_inf), by = id]
   
-  # p13: cumulative probability of not being infected by protected anal acts
-  dt[!is.na(vl_p1) & vl_p1 > 0, p13 := (1 - l) ^ (n_acts_ai_condom * exp(log(2.89) * (vl_p1 - 4.0) + log(0.96) * (age - 35) + log(17.25) + log(0.22)))]
+  # Merge study_dt and risk data.table
+  s_dt <- merge(x = s_dt, y = risk, all.x = T)
+
+  # If HIV-positive at previous timestep, assign HIV status of 1 at all subsequent time steps
+  s_dt[hiv == 1, hiv_t := as.integer(1)]
   
-  dt[is.na(vl_p1) | vl_p1 == 0, 13:16 := 1]
-  
-  # Partner 2
-  # p20: cumulative probability of not being infected by unprotected vaginal acts
-  dt[!is.na(vl_p2) & vl_p2 > 0 & arm == 1, p20 := (1 - l) ^ (n_acts_vi_no_condom * exp(log(2.89) * (vl_p1 - 4.0) + log(0.96) * (age - 35) + log(0.25) * adh))]
-  
-  dt[!is.na(vl_p2) & vl_p2 > 0 & arm == 0, p20 := (1 - l) ^ (n_acts_vi_no_condom * exp(log(2.89) * (vl_p1 - 4.0) + log(0.96) * (age - 35)))]
-  
-  # p21: cumulative probability of not being infected by protected vaginal acts
-  dt[!is.na(vl_p2) & vl_p2 > 0 & arm == 1, p21 := (1 - l) ^ (n_acts_vi_condom * exp(log(2.89) * (vl_p1 - 4.0) + log(0.96) * (age - 35) + log(0.25) * adh + log(0.22)))]
-  
-  dt[!is.na(vl_p2) & vl_p2 > 0 & arm == 0, p21 := (1 - l) ^ (n_acts_vi_condom * exp(log(2.89) * (vl_p1 - 4.0) + log(0.96) * (age - 35) + log(0.22)))]
-  
-  # p22: cumulative probability of not being infected by unprotected anal acts
-  dt[!is.na(vl_p2) & vl_p2 > 0, p22 := (1 - l) ^ (n_acts_ai_no_condom * exp(log(2.89) * (vl_p1 - 4.0) + log(0.96) * (age - 35) + log(17.25)))]
-  
-  # p23: cumulative probability of not being infected by protected anal acts
-  dt[!is.na(vl_p2) & vl_p2 > 0, p23 := (1 - l) ^ (n_acts_ai_condom * exp(log(2.89) * (vl_p1 - 4.0) + log(0.96) * (age - 35) + log(17.25) + log(0.22)))]
-  
-  dt[is.na(vl_p2) | vl_p2 == 0, 17:20 := 1]
-  
-  # Total monthly risk
-  dt[, risk := 1 - (Reduce(`*`, .SD)), .SDcols = 13:20, by = id]
-  
-  #  If HIV-positive at previous timestep, assign HIV status of 1 at all subsequent time steps
-  dt[hiv == 1, risk := 1]
+  # If no HIV-positive partners at current timestep, assign HIV status from previous time step
+  s_dt[is.na(V1), hiv_t := hiv]
 
   # Assign HIV transmission as a binomial draw with probability equal to total monthly risk
-  dt[, hiv := rbinom(n = nrow(dt), size = 1, prob = risk)]
+  s_dt[is.na(hiv_t), hiv_t := rbinom(n = nrow(s_dt[is.na(hiv_t)]), size = 1, prob = V1)]
   
-  return(dt$hiv)
+  return(s_dt$hiv_t)
 }
