@@ -10,7 +10,6 @@
 #######################################################################################
 
 hiv_transmission <- function(s_dt, m_dt, f_dt, t, l) {
-  ## TO DO: Ask EB: Baseline STI status is included and treated as a fixed characteristic throughout simulations, though many STIs are curable. Which STIs are included in baseSTD variable? Hughes, 2012 has RRs for STIs: 2.14 for HSV, 2.65 for GUD, 2.57 for Trich, 3.63 for cervicitis or vaginitis. Have used generic RR of 2.5.
   ## TO DO: Make all of the relative risks parameters that are loaded from elsewhere.
   dt <- merge(x = m_dt, y = f_dt, by = "id", all.y = F)
   
@@ -31,11 +30,14 @@ hiv_transmission <- function(s_dt, m_dt, f_dt, t, l) {
 
   # Estimate per-act risk of not acquiring HIV
   dt[, risk_no_inf := (1 - l) ^ exp(log(2.89)  * (vl - 4.0) +
-                                    log(0.94)  * (f_age - 35) +
+                                    log(0.96)  * (f_age - 30) +
                                     log(0.25)  * adh * arm +
                                     log(0.22)  * condom +
                                     log(17.25) * ai +
-                                    log(2.5)   * sti)]
+                                    log(2.50)  * n_sti +
+                                    log(3.63)  * bv)]
+  
+  ## TO DO: Assign cumulative risk of infection for ai acts and vi acts by id. Assign to appropriate time step in study_dt.
   
   # Estimate cumulative risk of acquiring HIV over all acts
   risk <- dt[, 1 - Reduce(f = `*`, x = risk_no_inf), by = id]

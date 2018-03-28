@@ -28,22 +28,26 @@ assign_adh_t0 <- function(dt) {
 assign_adh_fup <- function(s_dt, f_dt, t) {
   ## TO DO: Make adherence model coefficients parameters to be passed to function.
   ## TO DO: Ask EB: Is this the best way to model adherence? Should we use observed adherence values from follow-up for participants?
+  
+  ## Below method of using coefficients from Jingyang's Markov model did not work properly. Rather, proportion adherent for all age groups converged to 0.7. Try modifying the function to use baseline values above as intercepts, and fixed probability of remaining adherent for all participants.
 
   # Assign unprotected sex in the previous week as random binomial draw with probability = condom_prob. This is disconnected from protection of acts calculated in hiv_transmission.
   dt <- merge(x = s_dt, y = f_dt, by = "id", all.x = T)
-  dt[time == t, unprotect_sex := rbinom(n = nrow(dt[time == t]), size = 1, prob = prob_condom)]
-
-  # Model for non-adherent to adherent: log_odds_adherent = b0 + b1 * (unprotected sex in previous week), where b0 = -2.45, [-2.95, -1.94] and b1 = -0.252, [-0.485, -0.022]. Per Jingyang's email dated 2017-10-02, no other predictors in model were significant.
-  dt[which(time == t - 30 & adh == 0) + 1, log_odds_adh := -2.45 - 0.252 * unprotect_sex]
-  
-  # Model for remaining at adherent: log_odds_adherent = b0, where b0 = 3.44, [3.02, 3.91]. Per Jingyang's email dated 2017-10-02, no other predictors in model were significant.
-  dt[which(time == t - 30 & adh == 1) + 1, log_odds_adh := 3.44]
-  
-  # Expit to convert log-odds of adherence to probability of adherence
-  dt[time == t, prob_adh := exp(log_odds_adh)/(1 + exp(log_odds_adh))]
+  # dt[time == t, unprotect_sex := rbinom(n = nrow(dt[time == t]), size = 1, prob = prob_condom)]
+  # 
+  # # Model for non-adherent to adherent: log_odds_adherent = b0 + b1 * (unprotected sex in previous week), where b0 = -2.45, [-2.95, -1.94] and b1 = -0.252, [-0.485, -0.022]. Per Jingyang's email dated 2017-10-02, no other predictors in model were significant.
+  # dt[which(time == t - 30 & adh == 0) + 1, log_odds_adh := -2.45 - 0.252 * unprotect_sex]
+  # 
+  # # Model for remaining at adherent: log_odds_adherent = b0, where b0 = 3.44, [3.02, 3.91]. Per Jingyang's email dated 2017-10-02, no other predictors in model were significant.
+  # dt[which(time == t - 30 & adh == 1) + 1, log_odds_adh := 3.44]
+  # 
+  # # Expit to convert log-odds of adherence to probability of adherence
+  # dt[time == t, prob_adh := exp(log_odds_adh)/(1 + exp(log_odds_adh))]
   
   # Adherence at time t determined as random binomial draw with probability equal to prob_adh
-  dt[time == t & !is.na(prob_adh), adh := rbinom(n = nrow(dt[time == t & !is.na(prob_adh)]), size = 1, prob = prob_adh)]
+  dt[which(time == t - 30 & adh == 0) + 1, prob_adh := 0]
+  dt[which(time == t - 30 & adh == 1) + 1, prob_adh := 0.995]
+  dt[time == t & arm == 1, adh := rbinom(n = nrow(dt[time == t & arm == 1]), size = 1, prob = prob_adh)]
 
   return(dt[time == t, adh])
 }

@@ -3,8 +3,8 @@
 # options(warn = 2) # Turn warnings into errors
 # options(error = browser) # Enter browser on error
 
-if(grepl(pattern = "MXL24705MR", Sys.info()['nodename'])) {
-  setwd("C:/Users/kpeebles/Dropbox/UW Epi Program/RB/ASPIRE/ring-eff")
+if(grepl(pattern = "Linux", Sys.info()['sysname'])) {
+  setwd("/gscratch/csde/kpeebles")
 } else {
   setwd("~/Documents/code/aspire")
 }
@@ -32,5 +32,3 @@ age_mix_mat_cond <- sapply(1:ncol(age_mix_mat), function(x) {
   sapply(1:nrow(age_mix_mat), function(y) round(age_mix_mat[y, x]/sum(age_mix_mat[, x]), 2))
 })
 rownames(age_mix_mat_cond) <- colnames(age_mix_mat_cond) <- colnames(age_mix_mat)
-
-n_males   <- f_dt[, sum(n_part)]

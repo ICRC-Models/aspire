@@ -28,18 +28,18 @@ partner_change <- function(m_dt, f_dt) {
   
   # Partnership dissolution. For each active relationship, end relationship with female age-specific probability
   m_dt <- merge(x = m_dt, y = p_rates_dt, by = "f_age")
-  m_dt[active == 1, active := rbinom(n    = nrow(m_dt[active == 1]),
-                                     size = 1,
-                                     prob = 1 - prob)]
+  m_dt[active == 1 & max_part != 1, 
+       active := rbinom(n    = nrow(m_dt[active == 1 & max_part != 1]),
+                        size = 1,
+                        prob = 1 - prob)]
   
   # Add new partners to m_dt and assign country, age, HIV status, and viral load. New partners are added to m_dt after determination of relationship formation and dissolution so that newly-formed relationships are not dissolved in the same time step (i.e., without contributing any risk).
-  m_dt <- rbind(m_dt[, .SD, .SDcols = names(m_dt)[which(names(m_dt) != "prob")]], f_dt[new_part == 1, .(id, f_age)], fill = T)
+  m_dt <- rbind(m_dt[, .SD, .SDcols = names(m_dt)[which(names(m_dt) != "prob")]], f_dt[new_part == 1, .(id, f_age, country, max_part, condom_lweek)], fill = T)
   
-  m_dt[is.na(country), `:=`(country = f_dt[m_dt[is.na(country), id], country],
-                            active  = as.integer(1))]
+  m_dt[is.na(active), active := as.integer(1)]
   
   m_dt[is.na(m_age), m_age := assign_male_age(m_ids = m_dt[is.na(m_age), id], f_age = f_dt$f_age)]
-  m_dt[is.na(hiv),   hiv   := assign_male_hiv_status(dt = m_dt[is.na(hiv), .(country, m_age)])]
+  m_dt[is.na(hiv),   hiv   := assign_male_hiv_status(dt = m_dt[is.na(hiv), .(country, m_age, f_age, condom_lweek)], age_rr = params$age_rr, cond_rr = params$cond_rr)]
   m_dt[is.na(vl),    vl    := assign_male_vl(hiv = m_dt[is.na(vl), hiv], age = m_dt[is.na(vl), m_age])]
   
   return(m_dt)

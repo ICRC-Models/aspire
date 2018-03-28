@@ -9,11 +9,13 @@
 # 
 #######################################################################################
 
-assign_male_hiv_status <- function(dt) {
+assign_male_hiv_status <- function(dt, age_rr, cond_rr) {
 
   hiv <- unlist(sapply(c("mal", "sa", "uga", "zim"), function(x) {
     dt[country == x,
-       rbinom(n = nrow(dt[country == x]), size = 1, prob = male_prev[m_age, x])]
+       rbinom(n    = nrow(dt[country == x]), 
+              size = 1, 
+              prob = (male_prev[m_age, x] * (1 - (f_age - 18) * (age_rr/(45 - 18))) * ifelse(condom_lweek, cond_rr, 1)))]
   }))
   
   return(hiv)

@@ -2,7 +2,7 @@
 # 
 # Author: Kathryn Peebles
 # Date:   9 March 2018
-# run_sim: function to run a specified number of simulations of the ASPIRE trial
+# run_sim: function to run a simulation of the ASPIRE trial
 #
 # input:  None
 # output: A longitudinal dataset
@@ -10,26 +10,41 @@
 #######################################################################################
 
 run_sim <- function() {
+  
+  setkey(f_dt, id)
 
   ## Create vector of participant ids repeated once for each partner
   id <- f_dt[, rep(id, n_part)]
   
   ## Create table with one row for each male partner
-  m_dt <- data.table(id      = id,
-                     country = f_dt$country[id],
-                     f_age   = f_dt$f_age[id],
-                     active  = as.integer(1))
+  m_dt <- data.table(id           = id,
+                     country      = f_dt$country[id],
+                     f_age        = f_dt$f_age[id],
+                     active       = as.integer(1),
+                     max_part     = f_dt$max_part[id],
+                     condom_lweek = f_dt$condom_lweek[id])
+  
+  if(nrow(m_dt[max_part == 1]) != nrow(f_dt[married == T])) { browser() }
   
   ## Assign male partner age, HIV status, and viral load values.
   m_dt[, m_age := assign_male_age(m_ids = id, f_age = f_age)]
-  m_dt[, hiv   := assign_male_hiv_status(dt = m_dt[, .(country, m_age)])]
+  m_dt[, hiv   := assign_male_hiv_status(dt = m_dt[, .(country, m_age, f_age, condom_lweek)], age_rr = params$age_rr, cond_rr = params$cond_rr)]
   m_dt[, vl    := assign_male_vl(hiv = m_dt$hiv, age = m_dt$m_age)]
+  
+  ## Replace randomly assigned baseline hiv and viral load values for women who report an HIV-positive partner
+  m_dt[id %in% f_dt[m_hiv == "positive", id], hiv := 1]
+  m_dt[id %in% f_dt[m_hiv == "positive" & m_arv == T, id], vl := log10(50)]
+  m_dt[id %in% f_dt[m_hiv == "positive" & m_arv == F, id], 
+       vl := assign_male_vl(hiv = m_dt[id %in% f_dt[m_hiv == "positive" & m_arv == F, id]]$hiv,
+                            age = m_dt[id %in% f_dt[m_hiv == "positive" & m_arv == F, id]]$m_age)] ## TO DO: this distribution includes treated males, but these males are not on treatment. Should sample only from distribution that excludes viral suppresion.
+  
+  ## Among married women, if reported partner HIV status as negative, set partner status to negative
+  ## TO DO: Ask EB about this assumption. Because HIV status of all others is drawn from country- and age-specific prevalence distributions, reassigning status of some will result in overall lower prevalence of HIV. Proportions infected in observed data are actually about equal by reported negative vs. unknown status, so this is an artificial way to reduce incident infections among married (and thereby older) women, as observed in trial data.
+  m_dt[id %in% f_dt[married == T & m_hiv == "negative", id], `:=`(hiv = as.integer(0), vl = as.integer(0))]
   
   ## Append fixed characteristics to f_dt that will vary in simulations
   f_dt[, `:=`(prob_ai     = assign_prob_ai(n = nrow(f_dt), prop_ai = params$prop_ai, alpha = params$alpha, beta = params$beta),
               prob_condom = assign_prob_condom(countries = f_dt[, country]))]
-  
-  setkey(f_dt, id)
   
   ## Create study data table
   time_steps <- seq(0, 30 * 12 * 3, 30)
@@ -56,11 +71,11 @@ run_sim <- function() {
                              adh   = assign_adh_fup(s_dt = study_dt[time %in% c(t, t - 30), .(id, time, arm, adh)], f_dt = f_dt[, .(id, prob_condom)], t = t),
                              hiv   = hiv_transmission(s_dt = study_dt[time == t - 30, .(id, adh, hiv)],
                                                       m_dt = m_dt[active == 1 & hiv == 1, .(id, vl)],
-                                                      f_dt = f_dt[, .(id, f_age, pp_acts, sti, arm, prob_ai, prob_condom)],
+                                                      f_dt = f_dt[, .(id, f_age, pp_acts, n_sti, bv, arm, prob_ai, prob_condom)],
                                                       t   = t,
                                                       l   = params$lambda))]
     
-    m_dt <- partner_change(m_dt = m_dt, f_dt = f_dt[, .(id, country, f_age, max_part)])
+    m_dt <- partner_change(m_dt = m_dt, f_dt = f_dt[, .(id, country, f_age, max_part, condom_lweek)])
     
     # make run_sim a function that saves long dataset to be used in Cox proportional hazards models. Then can call run_sim within other functions that will save other output (e.g., for ABC, sum infections by arm by age)
   }
@@ -72,6 +87,7 @@ run_sim <- function() {
   study_dt <- study_dt[, .SD[cumsum(hiv) <= 1], by = id]
   
   return(study_dt)
+  #return(list(study_dt = study_dt, m_dt = m_dt))
   
   ## TO DO: Check that male partner HIV prevalence distribution assigned in model matches observed age- and country-specific prevalence distribution
 }
