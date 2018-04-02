@@ -8,6 +8,7 @@ library(data.table)
 
 setwd("~/Documents/code/aspire/data-private")
 
+source("~/Documents/code/aspire/fx/assign_m_hiv_rr.R")
 load(paste0(getwd(), "/hiv.RData"))
 dt <- as.data.table(hiv)
 
@@ -24,7 +25,7 @@ dt[is.na(unplast7base), log_odds_unp := coef[1] +
 dt[is.na(unplast7base), prob_unp := exp(log_odds_unp)/(1 + exp(log_odds_unp))]
 dt[is.na(unplast7base) & prob_unp < 0.50, unplast7base := TRUE]
 
-f_dt <- dt[, .(site, country, arm, fu_days, nVI7base, age, basenumsp, basesyp, basetrr, basect, basegon, basebv, basehivsp, ponarv, married, unplast7base)]
+f_dt <- dt[, .(site, country, arm, fu_days, nVI7base, age, basenumsp, basesyp, basetrr, basect, basegon, basebv, basehivsp, ponarv, married, unplast7base, enrolldt)]
 
 f_dt[, id := 1:nrow(f_dt)]
 
@@ -38,6 +39,10 @@ f_dt[, site := tstrsplit(x = site, split = ": ", keep = 2)]
 f_dt[, arm := ifelse(test = arm == "Placebo",
                      yes  = 0,
                      no   = 1)]
+
+f_dt[, days_pre_adh_int := as.numeric(as.Date("2013-08-01") - enrolldt)]
+f_dt[, days_pre_adh_int := ifelse(days_pre_adh_int < 0, 0, days_pre_adh_int)]
+f_dt[, enrolldt := NULL]
 
 f_dt[, f_age_cat := c("18-21", "22-26", "27-45")[findInterval(x = f_dt$age, vec = c(18, 22, 27))]] # age categories (18-21, 22-26, 27-45)
 
@@ -81,6 +86,9 @@ f_dt[basehivsp == "HIV positive", m_hiv := "positive"]
 f_dt[basehivsp == "HIV negative", m_hiv := "negative"]
 f_dt[, basehivsp := NULL]
 
-setcolorder(x = f_dt, neworder = c("id", "country", "site", "f_age", "f_age_cat", "n_part", "max_part", "pp_acts", "married", "m_hiv", "m_arv", "n_sti", "bv", "condom_lweek", "arm", "fu_days"))
+# Assign relative probability of having an HIV-positive male partner
+f_dt[, m_hiv_rr := sapply(f_age, function(x) { assign_m_hiv_rr(age = x, l = 0.95) })]
+
+setcolorder(x = f_dt, neworder = c("id", "country", "site", "f_age", "f_age_cat", "n_part", "max_part", "pp_acts", "married", "m_hiv_rr", "m_hiv", "m_arv", "n_sti", "bv", "condom_lweek", "arm", "fu_days", "days_pre_adh_int"))
 
 save(f_dt, file = paste0(getwd(), "/f_dt.RData"))
