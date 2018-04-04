@@ -19,6 +19,8 @@ assign_adh_t0 <- function(dt) {
   # Model uses logistic regression. At baseline: log(prob_adh/(1 - prob_adh)) = -0.567 + 0.0835*age - 0.919*blantyre + 0.978*lilongwe - 1.27*umkomaas - 3.22*isipingo - 2.82*tongaat - 1.22*emavundleni
   dt[arm == 1, log_odds_adh := -0.567 + 0.0835 * f_age - 0.919 * as.numeric(site == "Blantyre") + 0.978 * as.numeric(site == "Lilongwe") - 1.27 * as.numeric(site == "Umkomaas") - 3.22 * as.numeric(site == "Isipingo") - 2.82 * as.numeric(site == "Tongaat") - 1.22 * as.numeric(site == "Emavundleni Cent")]
   dt[arm == 1, prob_adh := exp(log_odds_adh)/(1 + exp(log_odds_adh))]
+  
+  # Adherence was poorer prior to adherence interventions, so reduce probability of adherence by factor pre_adh_int_rr_bl for those enrolling in the trial prior to Aug, 2013
   dt[arm == 1 & days_pre_adh_int != 0 & f_age_cat != "27-45", prob_adh := prob_adh * params$pre_adh_int_rr_bl]
   dt[arm == 1, adh := rbinom(n = nrow(dt[arm == 1]), size = 1, prob = prob_adh)]
 

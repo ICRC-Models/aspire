@@ -40,7 +40,7 @@ run_sim_abc <- function(prop_ai, a, b, i) {
                             age = m_dt[id %in% f_dt[m_hiv == "positive" & m_arv == F, id]]$m_age)] ## TO DO: this distribution includes treated males, but these males are not on treatment. Should sample only from distribution that excludes viral suppresion.
   
   ## Among married women, if reported partner HIV status as negative, set partner status to negative
-  m_dt[id %in% f_dt[married == T & m_hiv == "negative", id], `:=`(hiv = as.integer(0), vl = as.integer(0))]
+  m_dt[id %in% f_dt[married == T & m_hiv == "negative" & f_age_cat == "27-45", id], `:=`(hiv = as.integer(0), vl = as.integer(0))]
   
   ## Append fixed characteristics to f_dt that will vary in simulations
   f_dt[, `:=`(prob_ai     = assign_prob_ai(n = nrow(f_dt), prop_ai = prop_ai, alpha = a, beta = b),
@@ -52,9 +52,10 @@ run_sim_abc <- function(prop_ai, a, b, i) {
   setnames(study_dt, old = c("Var1", "Var2"), new = c("id", "time"))
   
   ## Add baseline variable values
-  study_dt[time == 0, `:=`(f_age = f_dt$f_age,
-                           adh   = as.integer(assign_adh_t0(dt = f_dt[, .(id, f_age, f_age_cat, arm, site, days_pre_adh_int)])),
-                           hiv   = as.integer(0))]
+  study_dt[time == 0, `:=`(f_age        = f_dt$f_age,
+                           adh          = as.integer(assign_adh_t0(dt = f_dt[, .(id, f_age, f_age_cat, arm, site, days_pre_adh_int)])),
+                           hiv          = as.integer(0),
+                           prop_risk_ai = 0)]
   
   setkey(study_dt, id, time)
   
@@ -71,12 +72,13 @@ run_sim_abc <- function(prop_ai, a, b, i) {
   for(t in time_steps[2:37]) {
     
     study_dt[time == t, `:=`(f_age = aging(prev_ages = study_dt[time == t - 30, f_age]),
-                             adh   = assign_adh_fup(s_dt = study_dt[time %in% c(t, t - 30), .(id, time, arm, adh, pre_adh_int)], f_dt = f_dt[, .(id, f_age_cat, days_pre_adh_int)], t = t),
-                             hiv   = hiv_transmission(s_dt = study_dt[time == t - 30, .(id, adh, hiv)],
-                                                      m_dt = m_dt[active == 1 & hiv == 1, .(id, vl)],
-                                                      f_dt = f_dt[, .(id, f_age, pp_acts, n_sti, bv, arm, prob_ai, prob_condom)],
-                                                      t   = t,
-                                                      l   = params$lambda))]
+                             adh   = assign_adh_fup(s_dt = study_dt[time %in% c(t, t - 30), .(id, time, arm, adh, pre_adh_int)], f_dt = f_dt[, .(id, f_age_cat, days_pre_adh_int)], t = t))]
+    
+    study_dt[time == t, c("hiv", "prop_risk_ai") := hiv_transmission(s_dt = study_dt[time == t - 30, .(id, adh, hiv)],
+                                                                     m_dt = m_dt[active == 1 & hiv == 1, .(id, vl)],
+                                                                     f_dt = f_dt[, .(id, f_age, pp_acts, n_sti, bv, arm, prob_ai, prob_condom)],
+                                                                     t   = t,
+                                                                     l   = params$lambda)]
     
     m_dt <- partner_change(m_dt = m_dt, f_dt = f_dt[, .(id, country, f_age, max_part, condom_lweek, m_hiv_rr)])
   }

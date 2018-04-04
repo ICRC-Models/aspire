@@ -31,28 +31,42 @@ hiv_transmission <- function(s_dt, m_dt, f_dt, t, l) {
   # Estimate per-act risk of not acquiring HIV
   dt[, risk_no_inf := (1 - l) ^ exp(log(2.89)  * (vl - 4.0) +
                                     log(0.96)  * (f_age - 30) +
-                                    log(0.25)  * adh * arm +
+                                    log(0.25)  * adh * arm * (1 - ai) +
                                     log(0.22)  * condom +
                                     log(17.25) * ai +
                                     log(2.50)  * n_sti +
                                     log(3.63)  * bv)]
   
-  ## TO DO: Assign cumulative risk of infection for ai acts and vi acts by id. Assign to appropriate time step in study_dt.
+  # Assign cumulative risk of infection for vi acts and ai acts by id. Assign to appropriate time step in study_dt.
+  cum_risk_inf_vi <- dt[arm == 1 & adh == 1 & ai == 0, 1 - Reduce(f = `*`, x = risk_no_inf), by = id]
+  cum_risk_inf_ai <- dt[arm == 1 & adh == 1 & ai == 1, 1 - Reduce(f = `*`, x = risk_no_inf), by = id]
+  
+  # Estimate proportion of HIV risk attributable to vi and ai
+  cum_risk_inf_dt <- merge(x = cum_risk_inf_vi, y = cum_risk_inf_ai, all.x = T, all.y = T)
+  cum_risk_inf_dt[is.na(V1.x), V1.x := 0]
+  cum_risk_inf_dt[is.na(V1.y), V1.y := 0]
+  cum_risk_inf_dt[, `:=`(prop_risk_vi = V1.x/(V1.x + V1.y),
+                         prop_risk_ai = V1.y/(V1.x + V1.y))]
   
   # Estimate cumulative risk of acquiring HIV over all acts
   risk <- dt[, 1 - Reduce(f = `*`, x = risk_no_inf), by = id]
   
-  # Merge study_dt and risk data.table
+  # Merge s_dt and risk data.table
   s_dt <- merge(x = s_dt, y = risk, all.x = T)
+  setnames(x = s_dt, old = "V1", new = "risk")
+  
+  # Merge s_dt and cum_risk_inf_dt
+  s_dt <- merge(x = s_dt, y = cum_risk_inf_dt[, .(id, prop_risk_ai)], all.x = T)
+  s_dt[is.na(prop_risk_ai), prop_risk_ai := 0]
 
   # If HIV-positive at previous timestep, assign HIV status of 1 at all subsequent time steps
   s_dt[hiv == 1, hiv_t := as.integer(1)]
   
   # If no HIV-positive partners at current timestep, assign HIV status from previous time step
-  s_dt[is.na(V1), hiv_t := hiv]
+  s_dt[is.na(risk), hiv_t := hiv]
 
   # Assign HIV transmission as a binomial draw with probability equal to total monthly risk
-  s_dt[is.na(hiv_t), hiv_t := rbinom(n = nrow(s_dt[is.na(hiv_t)]), size = 1, prob = V1)]
+  s_dt[is.na(hiv_t), hiv_t := rbinom(n = nrow(s_dt[is.na(hiv_t)]), size = 1, prob = risk)]
   
-  return(s_dt$hiv_t)
+  return(list(s_dt$hiv_t, s_dt$prop_risk_ai))
 }
