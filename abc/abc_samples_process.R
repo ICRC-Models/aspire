@@ -10,9 +10,10 @@
 #######################################################################################
 
 abc_samples_process <- function(t, N, alpha, p_acc_min, n_nodes) {
-  setwd("~/Documents/code/aspire/abc/hyak")
+  library(mnormt)
+  setwd("~/Documents/code/aspire/dev/test-sims/abc/hyak")
   source("~/Documents/code/aspire/abc/abc-fx.R")
-  load("~/Documents/code/aspire/abc/hyak/priors.RDATA", envir = .GlobalEnv)
+  load("~/Documents/code/aspire/dev/test-sims/abc/hyak/priors.RDATA", envir = .GlobalEnv)
   
   t_prev <- t - 1
   t_curr <- t
@@ -22,11 +23,13 @@ abc_samples_process <- function(t, N, alpha, p_acc_min, n_nodes) {
   n_particles <- length(list.files(path = paste0(getwd(), "/t", t_curr, "/particles")))
   particles <- data.table(sapply(c("prop_ai", "a", "b", "rho", "i"), function(x) { x = rep(NA_real_, n_particles) }))
   
+  ## Load all particles into empty data table
   for(i in 1:n_particles) {
     load(paste0(getwd(), "/t", t_curr, "/particles/particle_", i, ".RDATA"))
     particles[i, names(particles) := particle]
   }
   
+  ## Calculate weights
   if(t_curr == 0) {
     ## Set w to 1 for all particles in iteration 0
     particles[, w:= 1]
@@ -81,7 +84,7 @@ abc_samples_process <- function(t, N, alpha, p_acc_min, n_nodes) {
     new_particles[, i := 1:.N]
     setnames(new_particles, old = c("prop_ai_new", "a_new", "b_new"), new = c("prop_ai", "a", "b"))
     
-    ## Convert data table to list
+    ## Convert data table of new particles to simulate to list
     particles <- lapply(1:nrow(new_particles), function(x) { new_particles[x, ] })
     
     if(!dir.exists(paths = paste0(getwd(), "/t", t_next))) {
@@ -93,7 +96,7 @@ abc_samples_process <- function(t, N, alpha, p_acc_min, n_nodes) {
     ## Create vectors for start and end particles for each script
     n_new_particles <- length(particles)
     batch_size <- floor(n_new_particles/n_nodes)
-    starts <- seq(1, n_new_particles - floor(batch_size) - 1, batch_size)
+    starts <- seq(1, n_new_particles - batch_size - 1, batch_size)
     ends   <- seq(batch_size, n_new_particles, batch_size)
     ends[length(ends)] <- n_new_particles
     
@@ -112,7 +115,7 @@ abc_samples_process <- function(t, N, alpha, p_acc_min, n_nodes) {
       
       sim_script <- c(particles_to_sim, template)
       
-      filename <- paste0(getwd(), "/t", t, "/sim-scripts/sim_", i, ".R")
+      filename <- paste0(getwd(), "/t", t_next, "/sim-scripts/sim_", i, ".R")
       
       write_lines(x = sim_script, path = filename)
     }
@@ -131,6 +134,6 @@ abc_samples_process <- function(t, N, alpha, p_acc_min, n_nodes) {
     
     ## Transfer sim-scripts folder, master_t#.sh, and particles.RDATA to Hyak. bash master_t#.sh
   } else {
-    print("Proportion accepted particles less than minimum acceptance criterion.")
+    print("Proportion accepted particles less than minimum acceptance criterion. Approximate convergence achieved - yay!")
   }
 }

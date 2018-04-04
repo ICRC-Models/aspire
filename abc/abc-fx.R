@@ -119,6 +119,7 @@ calc_denominator_weights <- function(prev_iter_particles, weights, curr_iter_par
   # Create empty vector in which to store denominator values for particles in iteration t
   denom <- numeric(nrow(curr_iter_particles))
   
+  # For each particle simulated in iteration t, calculate the probability of moving to that particle from each accepted particle in iteration t-1
   for(i in 1:nrow(curr_iter_particles)) {
     for(j in 1:nrow(prev_iter_particles)) {
       denom[i] <- denom[i] + weights[j] * const * exp(-0.5 * (curr_iter_particles[i,] - prev_iter_particles[j,]) %*% inv_cov_mat %*% (curr_iter_particles[i,] - prev_iter_particles[j,]))
