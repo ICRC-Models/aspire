@@ -41,6 +41,7 @@ sapply(1:ncol(m_vl_dist), function(x) sum(m_vl_dist[, x]))
 ## Age categories in Huerga do not match male categories in age-mixing matrix. Create new matrix with columns "min" and "max" and age categories corresponding to those used in model.
 vl_dist <- cbind(c(1,  100, 1000, 10000, 100000), # minimum vl
                  c(99, 999, 9999, 99999, 999999), # maximum vl
+                 m_vl_dist[, "15-24"], # age group 15-19
                  m_vl_dist[, "15-24"], # age group 20-24
                  m_vl_dist[, "25-34"], # age group 25-29
                  m_vl_dist[, "25-34"], # age group 30-34
@@ -48,7 +49,7 @@ vl_dist <- cbind(c(1,  100, 1000, 10000, 100000), # minimum vl
                  m_vl_dist[, "35-44"], # age group 40-44,
                  m_vl_dist[, "45-59"], # age group 45-49,
                  m_vl_dist[, "45-59"]) # age group 50+
-colnames(vl_dist) <- c("min", "max", "20-24", "25-29", "30-34", "35-39", "40-44", "45-49", "50+")
+colnames(vl_dist) <- c("min", "max", "15-19", "20-24", "25-29", "30-34", "35-39", "40-44", "45-49", "50+")
 rownames(vl_dist) <- NULL
 
 ## Save viral load distribution matrix

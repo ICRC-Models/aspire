@@ -8,11 +8,6 @@
 
 load_data <- function() {
   
-  age_mix_mat <<- read_excel(paste0(getwd(), "/data-public/age-mixing-matrix.xlsx"),
-                             range = "B1:I9",
-                             col_names = T)
-  rownames(age_mix_mat) <<- colnames(age_mix_mat)
-  
   male_prev_mal <- t(read_excel(paste0(getwd(), "/data-public/male-hiv-prevalence-mal.xlsx"),
                                  col_names = T))
   
@@ -30,9 +25,10 @@ load_data <- function() {
                                uga = round(male_prev_uga, 3),
                                zim = male_prev_zim)
 
-  load(file = paste0(getwd(), "/data-public/vl_dist.RDATA"),    envir = .GlobalEnv)
-  load(file = paste0(getwd(), "/data-public/inf_obs.RData"),    envir = .GlobalEnv)
-  load(file = paste0(getwd(), "/data-private/f_dt.RData"),      envir = .GlobalEnv)
-  load(file = paste0(getwd(), "/data-public/p_rates_dt.RDATA"), envir = .GlobalEnv)
+  load(file = paste0(getwd(), "/data-public/vl_dist.RDATA"),      envir = .GlobalEnv)
+  load(file = paste0(getwd(), "/data-public/inf_obs.RData"),      envir = .GlobalEnv)
+  load(file = paste0(getwd(), "/data-private/f_dt.RData"),        envir = .GlobalEnv)
+  load(file = paste0(getwd(), "/data-public/p_rates_dt.RDATA"),   envir = .GlobalEnv)
+  load(file = paste0(getwd(), "/data-private/age_mix_mat.RDATA"), envir = .GlobalEnv)
 
 }

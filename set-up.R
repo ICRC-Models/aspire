@@ -15,6 +15,7 @@ library(data.table)
 library(dplyr)
 library(ggplot2)
 library(mnormt)
+library(parallel)
 
 ## Source functions
 source_files <- list.files(paste0(getwd(), "/fx/"), pattern = "*.R", full.names = T)
@@ -28,8 +29,3 @@ params_dt <- as.data.table(read_excel(paste0(getwd(), "/parameters/parameters.xl
 params <- lapply(params_dt[, name], function(x) { x = params_dt[name == x, value] })
 names(params) <- params_dt[, name]
 
-## Convert joint probabilities in age mixing matrix into probability of male partner age conditional on female partner age
-age_mix_mat_cond <- sapply(1:ncol(age_mix_mat), function(x) {
-  sapply(1:nrow(age_mix_mat), function(y) round(age_mix_mat[y, x]/sum(age_mix_mat[, x]), 2))
-})
-rownames(age_mix_mat_cond) <- colnames(age_mix_mat_cond) <- colnames(age_mix_mat)

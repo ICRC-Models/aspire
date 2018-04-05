@@ -11,10 +11,10 @@
 
 assign_male_age <- function(m_ids, f_age) {
 
-  f_ages_cat <- colnames(age_mix_mat_cond)[findInterval(x = f_age[m_ids], vec = c(15, 20, 25, 30, 35, 40, 45, 50))] # vec creates bins [15, 20), [20, 25), [25, 30), [30, 35), [35, 40), [40, 45), [45, 50)
+  f_ages_cat <- colnames(age_mix_mat)[findInterval(x = f_age[m_ids], vec = c(15, 20, 25, 30, 35, 40, 45, 50))] # vec creates bins [15, 20), [20, 25), [25, 30), [30, 35), [35, 40), [40, 45), [45, 50)
   
   m_partner_age <- unname(sapply(f_ages_cat, function(age_cat) {
-    sample(x = rownames(age_mix_mat_cond), size = 1, replace = F, prob = age_mix_mat_cond[, age_cat])
+    sample(x = rownames(age_mix_mat), size = 1, replace = F, prob = age_mix_mat[, age_cat])
   }))
   
   # ## Check distribution of female ages by male partner age category
