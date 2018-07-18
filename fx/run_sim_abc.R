@@ -94,12 +94,12 @@ run_sim_abc <- function(prop_ai, a, b, i) {
   
   ## TO DO: Ask EB: Sum of simulated infections by age group uses age group at baseline, as does summary of observed infections. Is this correct?
   ## Sum infections, sample size, and person-time by arm and age group
-  inf_sim <- as.data.table(study_dt %>% group_by(arm, f_age_cat) %>% summarise(hiv_inf = sum(hiv), n = length(unique(id)), py = sum(time/365)))
+  inf_sim <- as.data.table(study_dt[arm == 0] %>% group_by(f_age_cat) %>% summarise(hiv_inf = sum(hiv), n = length(unique(id)), py = sum(time/365)))
    
   if(!all(inf_sim[, n] == inf_obs[, n])) { stop("Number of participants in simulation not equal to number of participants in trial.") }
   
-  ## Calculate the distance criterion as the probability of the observed data under the poisson distribution paramaterized with lambda from simulated data (i.e., L(parameters | data)). Multiplying likelihood of all arm and age categories assumes independent poisson distributions. TO DO: Review this with EB.
-  rho <- prod(sapply(1:nrow(inf_sim), function(x) { dpois(x = inf_obs[x, hiv_inf], lambda = inf_sim[x, hiv_inf/py] * inf_obs[x, py])}))
+  ## Calculate the distance criterion as the probability of the observed data under the poisson distribution paramaterized with lambda from simulated data (i.e., L(parameters | data)). Multiplying likelihood of all age categories assumes independent poisson distributions. TO DO: Include this in supplement and review it with EB.
+  rho <- prod(sapply(1:nrow(inf_sim), function(x) { dpois(x = inf_obs[x, hiv_inf], lambda = inf_sim[x, hiv_inf/py] * inf_obs[x, py]) }))
   
   particle <- list(prop_ai = prop_ai, a = a, b = b, rho = rho, i = i)
   

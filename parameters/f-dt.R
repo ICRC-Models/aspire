@@ -64,7 +64,7 @@ f_dt[n_part == 0, n_part := 1]
 # Set max number of concurrent partners in simulation to n_part + 1. 
 f_dt[, max_part := n_part + 1]
 
-# If participant is married, set max_part and n_part equal to 1. In partner_change function, those with max_part == 1 will be uneligible for partner acquisition and dissolution
+# If participant is married, set max_part and n_part equal to 1. In partner_change function, those with max_part == 1 will be ineligible for partner acquisition and dissolution
 f_dt[married == T, `:=`(max_part = 1, n_part = 1)]
 
 # Set max number of weekly acts to 35.

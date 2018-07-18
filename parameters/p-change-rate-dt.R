@@ -4,6 +4,7 @@
 
 setwd("~/Documents/code/aspire/data-public")
 
+# Rates in McGrath are reported per 100 person-years. Convert rates to monthly probabilities.
 probs <- sapply(c(0.2806, 0.1574, 0.1046, 0.0424), function(x) {
   1 - exp(-x * 1/12)
 })

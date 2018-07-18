@@ -38,11 +38,11 @@ hiv_transmission <- function(s_dt, m_dt, f_dt, t, l) {
                                     log(3.63)  * bv)]
   
   # Assign cumulative risk of infection for vi acts and ai acts by id. Assign to appropriate time step in study_dt.
-  cum_risk_inf_vi <- dt[arm == 1 & adh == 1 & ai == 0, 1 - Reduce(f = `*`, x = risk_no_inf), by = id]
-  cum_risk_inf_ai <- dt[arm == 1 & adh == 1 & ai == 1, 1 - Reduce(f = `*`, x = risk_no_inf), by = id]
+  cum_risk_inf_vi <- dt[arm == 1 & ai == 0, 1 - Reduce(f = `*`, x = risk_no_inf), by = id]
+  cum_risk_inf_ai <- dt[arm == 1 & ai == 1, 1 - Reduce(f = `*`, x = risk_no_inf), by = id]
   
   # Estimate proportion of HIV risk attributable to vi and ai
-  cum_risk_inf_dt <- merge(x = cum_risk_inf_vi, y = cum_risk_inf_ai, all.x = T, all.y = T)
+  cum_risk_inf_dt <- merge(x = cum_risk_inf_vi, y = cum_risk_inf_ai, by = "id", all.x = T, all.y = T)
   cum_risk_inf_dt[is.na(V1.x), V1.x := 0]
   cum_risk_inf_dt[is.na(V1.y), V1.y := 0]
   cum_risk_inf_dt[, `:=`(prop_risk_vi = V1.x/(V1.x + V1.y),
@@ -52,11 +52,11 @@ hiv_transmission <- function(s_dt, m_dt, f_dt, t, l) {
   risk <- dt[, 1 - Reduce(f = `*`, x = risk_no_inf), by = id]
   
   # Merge s_dt and risk data.table
-  s_dt <- merge(x = s_dt, y = risk, all.x = T)
+  s_dt <- merge(x = s_dt, y = risk, by = "id", all.x = T)
   setnames(x = s_dt, old = "V1", new = "risk")
   
   # Merge s_dt and cum_risk_inf_dt
-  s_dt <- merge(x = s_dt, y = cum_risk_inf_dt[, .(id, prop_risk_ai)], all.x = T)
+  s_dt <- merge(x = s_dt, y = cum_risk_inf_dt[, .(id, prop_risk_ai)], by = "id", all.x = T)
   s_dt[is.na(prop_risk_ai), prop_risk_ai := 0]
 
   # If HIV-positive at previous timestep, assign HIV status of 1 at all subsequent time steps
