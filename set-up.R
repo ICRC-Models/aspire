@@ -16,6 +16,7 @@ library(dplyr)
 library(ggplot2)
 library(mnormt)
 library(parallel)
+library(zoo)
 
 ## Source functions
 source_files <- list.files(paste0(getwd(), "/fx/"), pattern = "*.R", full.names = T)
@@ -25,7 +26,7 @@ sapply(source_files, function(x) source(x))
 suppressWarnings(load_data())
 
 ## Load parameters
-params_dt <- as.data.table(read_excel(paste0(getwd(), "/parameters/parameters.xlsx"), range = "A1:B20", col_names = T))
+params_dt <- as.data.table(read_excel(paste0(getwd(), "/parameters/parameters.xlsx"), range = "A1:B96", col_names = T))
 params <- lapply(params_dt[, name], function(x) { x = params_dt[name == x, value] })
 names(params) <- params_dt[, name]
 

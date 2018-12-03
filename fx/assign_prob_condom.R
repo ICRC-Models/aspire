@@ -2,7 +2,7 @@
 # 
 # Author: Kathryn Peebles
 # Date:   19 March 2018
-# assign_prob_condom: function to assign individual probability of condom use. Called in creation of data table to store individual participant characteristics.
+# assign_prob_condom: function to assign individual probability of condom use.
 #
 # input:  Subset of f_dt containing only "country" variable; data table of country-specific condom probability.
 # output: Vector of values bounded in [0, 1] indicating individual-specific per-act probability of condom use

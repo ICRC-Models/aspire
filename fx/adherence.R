@@ -2,48 +2,93 @@
 # 
 # Author: Kathryn Peebles
 # Date:   18 October 2017
-# assign_adh_t0: Function to assign binary baseline adherence value according to parameters obtained in Hidden Markov model of adherence among ASPIRE trial participants
+# assign_adh_t0: Function to assign binary baseline adherence value according to parameters obtained in predictive model of adherence among ASPIRE trial participants (see email from EB dated 7 September 2018)
 #
-# input:  Subset of data in f_dt, including variables id, bl_age, arm, blantyre, lilongwe, umkomaas, isipingo, tongaat, emavundleni
+# input:  Subset of data in f_dt
 # output: Vector of 0/1 values indicating adherence at baseline.
 # 
-# assign_adh_fup: Function to assign binary follow-up adherence value according to parameters obtained in Hidden Markov model of adherence among ASPIRE trial participants
+# assign_adh_fup: Function to assign binary follow-up adherence value according to parameters obtained in predictive model of adherence among ASPIRE trial participants (see email from EB dated 7 September 2018)
 #
-# input:  Subset of data in study_dt and f_dt
+# input:  Subset of data in f_dt
 # output: Vector 0/1 values indicating adherence at time == t
 #######################################################################################
 
-## Ask EB: I assign adherence at time 0. Adherence, however, is used in the model for HIV transmission to indicate adherence at the previous 30 days. As such, adherence at t0 is not used except as it sets a trajectory for adherence at subsequent time steps. Is adherence at "baseline" actually adherence at the first follow-up visit (i.e., time == 30)?
-
-assign_adh_t0 <- function(dt) {
-  # Model uses logistic regression. At baseline: log(prob_adh/(1 - prob_adh)) = -0.567 + 0.0835*age - 0.919*blantyre + 0.978*lilongwe - 1.27*umkomaas - 3.22*isipingo - 2.82*tongaat - 1.22*emavundleni
-  dt[arm == 1, log_odds_adh := -0.567 + 0.0835 * f_age - 0.919 * as.numeric(site == "Blantyre") + 0.978 * as.numeric(site == "Lilongwe") - 1.27 * as.numeric(site == "Umkomaas") - 3.22 * as.numeric(site == "Isipingo") - 2.82 * as.numeric(site == "Tongaat") - 1.22 * as.numeric(site == "Emavundleni Cent")]
+assign_adh_t1 <- function(dt) {
+  # Assigned adherence value at visit 1 is based on predictive model for plasma dapivirine levels collected at Q1.
+  dt[arm == 1, log_odds_adh := params$pm_adhb_intercept + 
+                               params$pm_adhb_age * b_f_age +
+                               params$pm_adhb_married * b_married +
+                               params$pm_adhb_edu * b_edu + 
+                               params$pm_adhb_base_gon * b_gon +
+                               params$pm_adhb_base_ct * b_ct +
+                               params$pm_adhb_base_tr * b_trr +
+                               params$pm_adhb_pknow * b_pknow +
+                               params$pm_adhb_circ * b_circ +
+                               params$pm_adhb_noalc * b_noalc +
+                               params$pm_adhb_npart_eq_two * b_npart_eq_two +
+                               params$pm_adhb_npart_gt_two * b_npart_gt_two +
+                               params$pm_adhb_enrolldt * enrolldt_after_Apr12013 +
+                               params$pm_adhb_Lilongwe * (site == "Lilongwe") +
+                               params$pm_adhb_BothaHill * (site == "Botha's Hill") +
+                               params$pm_adhb_EmavundleniCent * (site == "Emavundleni Cent") +
+                               params$pm_adhb_eThekwini * (site == "eThekwini") +
+                               params$pm_adhb_Isipingo * (site == "Isipingo") +
+                               params$pm_adhb_RKKhan * (site == "RK Khan") +
+                               params$pm_adhb_Tongaat * (site == "Tongaat") +
+                               params$pm_adhb_Umkomaas * (site == "Umkomaas") +
+                               params$pm_adhb_Verulam * (site == "Verulam") +
+                               params$pm_adhb_WHRI * (site == "WHRI") +
+                               params$pm_adhb_MUJHU * (site == "MU-JHU") +
+                               params$pm_adhb_SekeSouth * (site == "Seke South") +
+                               params$pm_adhb_Spilhaus * (site == "Spilhaus") +
+                               params$pm_adhb_Zengeza * (site == "Zengeza")]
+  
   dt[arm == 1, prob_adh := exp(log_odds_adh)/(1 + exp(log_odds_adh))]
   
-  # Adherence was poorer prior to adherence interventions, so reduce probability of adherence by factor pre_adh_int_rr_bl for those enrolling in the trial prior to Aug, 2013
-  dt[arm == 1 & days_pre_adh_int != 0 & f_age_cat != "27-45", prob_adh := prob_adh * params$pre_adh_int_rr_bl]
   dt[arm == 1, adh := rbinom(n = nrow(dt[arm == 1]), size = 1, prob = prob_adh)]
 
-  return(dt$adh)
+  return(dt[, adh])
 }
 
 
-assign_adh_fup <- function(s_dt, f_dt, t) {
-  ## TO DO: Make adherence model coefficients parameters to be passed to function.
-  ## TO DO: EB is estimating time-varying coefficients for probability of adherence. For now, use baselines estimates from Jingyang's Markov model, with age-group specific probability of remaining adherent based on approximate interpretation of Figure 3 in Baeten, et al., 2016
-  dt <- merge(x = s_dt, y = f_dt, by = "id", all.x = T)
+assign_adh_fup <- function(dt, t) {
+  # Assigned adherence value at visits 2+ is based on predictive model for plasma dapivirine levels collected after Q1.
+  dt[, lag_adh := shift(adh), by = id]
   
-  # In Figure 3, adherence remains relatively steady among women ages 22-26 and 27-45, but declines by about 10% over the duration of the trial among women ages 18-21. However, data in this figure are from after adherence interventions were implemented in August, 2013. Therefore, assume that women have a lower probability of remaining adherent prior to initiation of adherence interventions.
-  # Assume that women who are initially non-adherent remain non-adherent
-  dt[which(time == t - 30 & adh == 0) + 1, prob_adh := 0]
-
-  dt[which(time == t - 30 & adh == 1 & (f_age_cat == "22-26" | f_age_cat == "27-45")) + 1, prob_adh := 1]
-  dt[which(time == t - 30 & adh == 1 & f_age_cat == "18-21") + 1, prob_adh := 0.9945]
+  dt[arm == 1 & visit == t, log_odds_adh := params$pm_adhfu_intercept + 
+                               params$pm_adhfu_lagadh1 * lag_adh +
+                               params$pm_adhfu_visitnum * visit +
+                               params$pm_adhfu_lagvisit_date_ind * prev_visit_date_after_Aug12013 +
+                               params$pm_adhfu_base_age * b_f_age +
+                               params$pm_adhfu_base_married * b_married +
+                               params$pm_adhfu_base_edu * b_edu + 
+                               params$pm_adhfu_base_gon * b_gon +
+                               params$pm_adhfu_base_ct * b_ct +
+                               params$pm_adhfu_base_tr * b_trr +
+                               params$pm_adhfu_base_pknow * b_pknow +
+                               params$pm_adhfu_base_circ * b_circ +
+                               params$pm_adhfu_base_noalc * b_noalc +
+                               params$pm_adhfu_base_npart_eq_two * b_npart_eq_two +
+                               params$pm_adhfu_base_npart_gt_two * b_npart_gt_two +
+                               params$pm_adhfu_enrolldt * enrolldt_after_Apr12013 +
+                               params$pm_adhfu_Lilongwe * (site == "Lilongwe") +
+                               params$pm_adhfu_BothaHill * (site == "Botha's Hill") +
+                               params$pm_adhfu_EmavundleniCent * (site == "Emavundleni Cent") +
+                               params$pm_adhfu_eThekwini * (site == "eThekwini") +
+                               params$pm_adhfu_Isipingo * (site == "Isipingo") +
+                               params$pm_adhfu_RKKhan * (site == "RK Khan") +
+                               params$pm_adhfu_Tongaat * (site == "Tongaat") +
+                               params$pm_adhfu_Umkomaas * (site == "Umkomaas") +
+                               params$pm_adhfu_Verulam * (site == "Verulam") +
+                               params$pm_adhfu_WHRI * (site == "WHRI") +
+                               params$pm_adhfu_MUJHU * (site == "MU-JHU") +
+                               params$pm_adhfu_SekeSouth * (site == "Seke South") +
+                               params$pm_adhfu_Spilhaus * (site == "Spilhaus") +
+                               params$pm_adhfu_Zengeza * (site == "Zengeza")]
   
-  # If time prior to adherence interventions, probability of adherence is reduced by params$pre_adh_int_rr_fu
-  dt[time == t & pre_adh_int == 1 & f_age_cat != "27-45", prob_adh := prob_adh * params$pre_adh_int_rr_fu]
+  dt[arm == 1 & visit == t, prob_adh := exp(log_odds_adh)/(1 + exp(log_odds_adh))]
   
-  dt[time == t & arm == 1, adh := rbinom(n = nrow(dt[time == t & arm == 1]), size = 1, prob = prob_adh)]
-
-  return(dt[time == t, adh])
+  dt[arm == 1 & visit == t, adh := rbinom(n = nrow(dt[arm == 1 & visit == t]), size = 1, prob = prob_adh)]
+  
+  return(dt[visit == t, adh])
 }

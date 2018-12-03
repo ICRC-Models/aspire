@@ -1,15 +1,15 @@
 #######################################################################################
 # 
 # Author: Kathryn Peebles
-# Date:   20 March 2018
-# run_sim_abc: function to run a single simulation with uncertainty parameters drawn in iterative Approximate Bayesian Computation model-fitting procedure.
+# Date:   9 March 2018
+# run_sim: function to run a simulation of the ASPIRE trial
 #
-# input:  Uncertainty parameters to be fitted in ABC model-fitting procedure.
-# output: Parameters used in simulation and distance criterion rho.
+# input:  None
+# output: A longitudinal dataset
 #
 #######################################################################################
 
-run_sim_abc <- function(lambda, cond_rr, c, s, rr_ai, i) {
+run_sim_sv <- function(lambda = params$lambda, cond_rr = params$cond_rr, c = params$c, s = params$s, rr_ai = params$rr_ai, i) {
   
   # Impute missing values for condom use in the last week and number of anal sex acts
   f_dt[is.na(b_condom_lweek) & visit == 0, b_condom_lweek := impute_unplw(dt = f_dt[is.na(b_condom_lweek) & visit == 0, .(id, m_hiv, b_sti, f_age, b_noalc, b_married)])]
@@ -77,7 +77,7 @@ run_sim_abc <- function(lambda, cond_rr, c, s, rr_ai, i) {
                                                                   t     = t,
                                                                   l     = lambda,
                                                                   rr_ai = rr_ai)]
-
+    
     m_dt <- partner_change(m_dt = m_dt, f_dt = f_dt[, .(id, country, f_age, max_part, b_condom_lweek, m_hiv_rr)], cond_rr = cond_rr)
   }
   
@@ -85,24 +85,10 @@ run_sim_abc <- function(lambda, cond_rr, c, s, rr_ai, i) {
   f_dt <- f_dt[on_study == 1]
   
   # Clean up: Among seroconverters, remove rows subsequent to visit at which HIV is first detected (hiv_transmission module takes only the values for the current time step, and so does not take account of previous HIV status values).
-  f_dt <- f_dt[, .SD[cumsum(hiv) <= 1], by = id]  
+  f_dt <- f_dt[, .SD[cumsum(hiv) <= 1], by = id]
   
   # Clean up: Keep only last observation for each participant
   f_dt <- f_dt[, .SD[.N], by = id]
   
-  ## TO DO: Ask EB: Sum of simulated infections by age group uses age group at baseline, as does summary of observed infections. Is this correct?
-  # Sum infections, sample size, and person-time by age group for the placebo arm (ABC will fit parameters only to placebo arm).
-  inf_sim <- as.data.table(f_dt[arm == 0] %>% group_by(b_f_age_cat) %>% summarise(hiv_inf = sum(hiv), n = length(unique(id)), py = sum(as.numeric(visit_date - enrolldt)/365)))
-   
-  if(!all(inf_sim[, n] == inf_obs[, n])) { stop("Number of participants in simulation not equal to number of participants in trial.") }
-  
-  # Calculate the distance criterion as the probability of the observed data under the poisson distribution paramaterized with lambda from simulated data (i.e., L(parameters | data)). Multiplying likelihood of all age categories assumes independent poisson distributions. 
-  # TO DO: Include this in supplement and review it with EB.
-  rho <- prod(sapply(1:nrow(inf_sim), function(x) { dpois(x = inf_obs[x, hiv_inf], lambda = inf_sim[x, hiv_inf/py] * inf_obs[x, py]) }))
-  
-  particle <- list(prop_ai = prop_ai, a = a, b = b, rho = rho, i = i)
-  
-  save(particle, file = paste0(getwd(), "/particle_", particle[["i"]], ".RDATA"))
-  
-  ## TO DO: Include code that tracks # ai acts, # vi acts at each time step. Plot as distribution with expected proportions for code testing.
+  save(f_dt, file = paste0(getwd(), "/f_dt_", i, ".RDATA"))
 }
