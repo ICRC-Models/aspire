@@ -78,6 +78,8 @@ run_sim_abc <- function(lambda, cond_rr, c, s, rr_ai, i) {
                                                                   l     = lambda,
                                                                   rr_ai = rr_ai)]
 
+    f_dt[visit == t, any_hiv := as.numeric(f_dt[visit %in% 1:t, any(hiv == 1), by = id]$V1)]
+    
     m_dt <- partner_change(m_dt = m_dt, f_dt = f_dt[, .(id, country, f_age, max_part, b_condom_lweek, m_hiv_rr)], cond_rr = cond_rr)
   }
   
@@ -85,7 +87,8 @@ run_sim_abc <- function(lambda, cond_rr, c, s, rr_ai, i) {
   f_dt <- f_dt[on_study == 1]
   
   # Clean up: Among seroconverters, remove rows subsequent to visit at which HIV is first detected (hiv_transmission module takes only the values for the current time step, and so does not take account of previous HIV status values).
-  f_dt <- f_dt[, .SD[cumsum(hiv) <= 1], by = id]  
+  f_dt[visit == 0, any_hiv := 0]
+  f_dt <- f_dt[, .SD[cumsum(any_hiv) <= 1], by = id] 
   
   # Clean up: Keep only last observation for each participant
   f_dt <- f_dt[, .SD[.N], by = id]
