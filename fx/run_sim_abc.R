@@ -59,18 +59,21 @@ run_sim_abc <- function(lambda, cond_rr, c, s, rr_ai, i) {
                pp_vi_acts  = assign_mvi_acts(dt = f_dt[, .(id, pp_vi_acts_avg)]),
                pp_ai_acts  = assign_mai_acts(dt = f_dt[, .(id, pp_ai_acts_avg)]))]
   
-  # Add variables to track through simulations - adherence, hiv, proportion of risk attributable to AI
+  # Add variables to track through simulations - hiv and proportion of risk attributable to AI
   f_dt[visit == 0, `:=`(hiv          = as.integer(0),
                         prop_risk_ai = 0)]
-  f_dt[visit == 1, `:=`(adh          = as.integer(assign_adh_t1(dt = f_dt[visit == 1, .(id, b_f_age, b_married, b_edu, b_gon, b_ct, b_trr, b_pknow, b_circ, b_noalc, b_npart_eq_two, b_npart_gt_two, enrolldt_after_Apr12013, arm, site)])))]
   
-  # Run simulation
-  for(t in 1:max(f_dt$visit)) {
-    
-    # Adherence for visit 1 is assigned outside of the loop, so assign adherence for visits > 2
-    if(t > 1) {
-      f_dt[visit == t, adh := assign_adh_fup(dt = f_dt[visit %in% c(t, t - 1), .(id, visit, adh, b_f_age, b_married, b_edu, b_gon, b_ct, b_trr, b_pknow, b_circ, b_noalc, b_npart_eq_two, b_npart_gt_two, enrolldt_after_Apr12013, prev_visit_date_after_Aug12013, arm, site)], t = t)]
+  # Assign adherence in quarterly intervals
+  for(t in seq(3, 33, 3)) {
+    if(t == 3) {
+      f_dt[visit %in% c(t, t - 1, t - 2), adh := assign_adh_q1(dt = f_dt[visit %in% c(t, t - 1, t - 2), .(id, visit, b_f_age, b_married, b_edu, b_gon, b_ct, b_trr, b_pknow, b_circ, b_noalc, b_npart_eq_two, b_npart_gt_two, enrolldt_after_Apr12013, arm, site)])]
+    } else {
+      f_dt[visit %in% c(t, t - 1, t - 2), adh := assign_adh_fup(dt = f_dt[visit %in% c(t, t - 1, t - 2, t - 3), .(id, visit, adh, b_f_age, b_married, b_edu, b_gon, b_ct, b_trr, b_pknow, b_circ, b_noalc, b_npart_eq_two, b_npart_gt_two, enrolldt_after_Apr12013, prev_visit_date_after_Aug12013, arm, site)], t = t)]
     }
+  }
+  
+  # Run simulation in monthly timesteps
+  for(t in 1:33) { # No participants are on study beyond visit 33
     
     f_dt[visit == t, c("hiv", "prop_risk_ai") := hiv_transmission(f_dt  = f_dt[visit == t, .(id, adh, f_age, pp_vi_acts, pp_ai_acts, b_n_sti, b_bv, arm, prob_condom)],
                                                                   m_dt  = m_dt[active == 1 & hiv == 1, .(id, vl)],
@@ -103,7 +106,7 @@ run_sim_abc <- function(lambda, cond_rr, c, s, rr_ai, i) {
   # TO DO: Include this in supplement and review it with EB.
   rho <- prod(sapply(1:nrow(inf_sim), function(x) { dpois(x = inf_obs[x, hiv_inf], lambda = inf_sim[x, hiv_inf/py] * inf_obs[x, py]) }))
   
-  particle <- list(prop_ai = prop_ai, a = a, b = b, rho = rho, i = i)
+  particle <- list(lambda = lambda, cond_rr = cond_rr, c = c, s = s, rr_ai = rr_ai, rho = rho, i = i)
   
   save(particle, file = paste0(getwd(), "/particle_", particle[["i"]], ".RDATA"))
   

@@ -2,7 +2,7 @@
 # 
 # Author: Kathryn Peebles
 # Date:   18 October 2017
-# assign_adh_t0: Function to assign binary baseline adherence value according to parameters obtained in predictive model of adherence among ASPIRE trial participants (see email from EB dated 7 September 2018)
+# assign_adh_q1: Function to assign binary baseline adherence value according to parameters obtained in predictive model of adherence among ASPIRE trial participants (see email from EB dated 7 September 2018)
 #
 # input:  Subset of data in f_dt
 # output: Vector of 0/1 values indicating adherence at baseline.
@@ -13,9 +13,9 @@
 # output: Vector 0/1 values indicating adherence at time == t
 #######################################################################################
 
-assign_adh_t1 <- function(dt) {
-  # Assigned adherence value at visit 1 is based on predictive model for plasma dapivirine levels collected at Q1.
-  dt[arm == 1, log_odds_adh := params$pm_adhb_intercept + 
+assign_adh_q1 <- function(dt) {
+  # Assign adherence value at quarter 1 based on predictive model for plasma dapivirine levels collected at Q1.
+  dt[arm == 1 & visit == 3, log_odds_adh := params$pm_adhb_intercept + 
                                params$pm_adhb_age * b_f_age +
                                params$pm_adhb_married * b_married +
                                params$pm_adhb_edu * b_edu + 
@@ -43,9 +43,11 @@ assign_adh_t1 <- function(dt) {
                                params$pm_adhb_Spilhaus * (site == "Spilhaus") +
                                params$pm_adhb_Zengeza * (site == "Zengeza")]
   
-  dt[arm == 1, prob_adh := exp(log_odds_adh)/(1 + exp(log_odds_adh))]
+  dt[arm == 1 & visit == 3, prob_adh := exp(log_odds_adh)/(1 + exp(log_odds_adh))]
   
-  dt[arm == 1, adh := rbinom(n = nrow(dt[arm == 1]), size = 1, prob = prob_adh)]
+  dt[arm == 1 & visit == 3, adh := rbinom(n = nrow(dt[arm == 1 & visit == 3]), size = 1, prob = prob_adh)]
+  
+  dt[arm == 1, adh := na.locf(adh, fromLast = T), by = id]
 
   return(dt[, adh])
 }
@@ -53,7 +55,7 @@ assign_adh_t1 <- function(dt) {
 
 assign_adh_fup <- function(dt, t) {
   # Assigned adherence value at visits 2+ is based on predictive model for plasma dapivirine levels collected after Q1.
-  dt[, lag_adh := shift(adh), by = id]
+  dt[, lag_adh := shift(adh, n = 3), by = id]
   
   dt[arm == 1 & visit == t, log_odds_adh := params$pm_adhfu_intercept + 
                                params$pm_adhfu_lagadh1 * lag_adh +
@@ -90,5 +92,7 @@ assign_adh_fup <- function(dt, t) {
   
   dt[arm == 1 & visit == t, adh := rbinom(n = nrow(dt[arm == 1 & visit == t]), size = 1, prob = prob_adh)]
   
-  return(dt[visit == t, adh])
+  dt[arm == 1, adh := na.locf(adh, fromLast = T), by = id]
+  
+  return(dt[visit == t | visit == t - 1 | visit == t - 2, adh])
 }
