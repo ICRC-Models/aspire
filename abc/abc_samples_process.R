@@ -11,9 +11,10 @@
 
 abc_samples_process <- function(t, N, alpha, p_acc_min, n_nodes) {
   library(mnormt)
-  setwd("~/Documents/code/aspire/dev/test-sims/abc/hyak")
+  library(data.table)
+  setwd("~/Documents/code/aspire/abc/hyak")
   source("~/Documents/code/aspire/abc/abc-fx.R")
-  load("~/Documents/code/aspire/dev/test-sims/abc/hyak/priors.RDATA", envir = .GlobalEnv)
+  load("~/Documents/code/aspire/abc/priors.RDATA", envir = .GlobalEnv)
   
   t_prev <- t - 1
   t_curr <- t
@@ -21,7 +22,7 @@ abc_samples_process <- function(t, N, alpha, p_acc_min, n_nodes) {
   
   ## Create empty data table in which to store particles
   n_particles <- length(list.files(path = paste0(getwd(), "/t", t_curr, "/particles")))
-  particles <- data.table(sapply(c("prop_ai", "a", "b", "rho", "i"), function(x) { x = rep(NA_real_, n_particles) }))
+  particles <- data.table(sapply(c("lambda", "cond_rr", "c", "s", "rr_ai", "rho", "i"), function(x) { x = rep(NA_real_, n_particles) }))
   
   ## Load all particles into empty data table
   for(i in 1:n_particles) {
@@ -32,15 +33,15 @@ abc_samples_process <- function(t, N, alpha, p_acc_min, n_nodes) {
   ## Calculate weights
   if(t_curr == 0) {
     ## Set w to 1 for all particles in iteration 0
-    particles[, w:= 1]
+    particles[, w := 1]
   } else if(t_curr > 0) {
     ## Load particles from iteration t-1
     load(paste0(getwd(), "/t", t_prev, "/particles_acc_", t_prev, ".RDATA"))
     prev_particles <- eval(parse(text = paste0("particles_acc_", t_prev)))
     
-    particles[, w := calc_weights(prev_iter_particles = prev_particles[, .(prop_ai, a, b)], 
+    particles[, w := calc_weights(prev_iter_particles = prev_particles[, .(lambda, cond_rr, c, s, rr_ai)], 
                                   weights             = prev_particles[, w], 
-                                  curr_iter_particles = particles[, .(prop_ai, a, b)])]
+                                  curr_iter_particles = particles[, .(lambda, cond_rr, c, s, rr_ai)])]
   }
   
   ## Specify iteration
@@ -78,11 +79,11 @@ abc_samples_process <- function(t, N, alpha, p_acc_min, n_nodes) {
     
     new_particles <- select_particles(dt = prev_particles, n_new_particles = N - N * alpha)
     
-    new_particles <- perturb_particles(dt = new_particles, cov_mat = (0.5 * cov.wt(x = as.matrix(prev_particles[, .(prop_ai, a, b)]), wt = prev_particles[, w])$cov))
+    new_particles <- perturb_particles(dt = new_particles, cov_mat = (0.5 * cov.wt(x = as.matrix(prev_particles[, .(lambda, cond_rr, c, s, rr_ai)]), wt = prev_particles[, w])$cov))
     
-    new_particles <- new_particles[, .(prop_ai_new, a_new, b_new)]
+    new_particles <- new_particles[, .(lambda_new, cond_rr_new, c_new, s_new, rr_ai_new)]
     new_particles[, i := 1:.N]
-    setnames(new_particles, old = c("prop_ai_new", "a_new", "b_new"), new = c("prop_ai", "a", "b"))
+    setnames(new_particles, old = c("lambda_new", "cond_rr_new", "c_new", "s_new", "rr_ai_new"), new = c("lambda", "cond_rr", "c", "s", "rr_ai"))
     
     ## Convert data table of new particles to simulate to list
     particles <- lapply(1:nrow(new_particles), function(x) { new_particles[x, ] })
@@ -120,15 +121,12 @@ abc_samples_process <- function(t, N, alpha, p_acc_min, n_nodes) {
       write_lines(x = sim_script, path = filename)
     }
     
-    ## Create bash script
+    # Create bash script
     top_line <- "#!/bin/bash"
     
-    ## Loop through and save R script for every parameter set
-    jobs <- lapply(1:length(starts), function(x) {
-      paste("qsub -v SIMNO=", x, " runsim_abc_aspire.sh", sep = "")
-    })
+    jobs_loop <- paste0("for i in {1..", n_nodes, "}; do\n\texport SIMNO=$i\n\tsbatch runsim_abc_aspire.sh\ndone")
     
-    master <- c(top_line, jobs)
+    master <- c(top_line, jobs_loop)
     
     write_lines(master, paste0(getwd(), "/t", t_next, "/master_t", t_next, ".sh"))
     

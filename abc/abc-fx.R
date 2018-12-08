@@ -37,8 +37,8 @@ perturb_particles <- function(dt, cov_mat) {
     not_in_prior <- dt[, .I[!(in_prior)]]
     
     for(i in not_in_prior) {
-      dt[i, c("prop_ai_new", "a_new", "b_new") := as.list(rmnorm(n = 1, mean = as.vector(c(prop_ai, a, b)), varcov = cov_mat))]
-      dt[i, in_prior := is_in_prior(prop_ai = prop_ai_new, a = a_new, b = b_new)]
+      dt[i, c("lambda_new", "cond_rr_new", "c_new", "s_new", "rr_ai_new") := as.list(rmnorm(n = 1, mean = as.vector(c(lambda, cond_rr, c, s, rr_ai)), varcov = cov_mat))]
+      dt[i, in_prior := is_in_prior(lambda = lambda_new, cond_rr = cond_rr_new, c = c_new, s = s_new, rr_ai = rr_ai_new)]
     }
   }
   
@@ -54,10 +54,12 @@ perturb_particles <- function(dt, cov_mat) {
 #
 #######################################################################################
 
-is_in_prior <- function(prop_ai, a, b) {
-  d <- dunif(x = prop_ai, min = priors[param == "prop_ai", min], max = priors[param == "prop_ai", max]) * 
-       dunif(x = a,       min = priors[param == "a",       min], max = priors[param == "a",       max]) *
-       dunif(x = b,       min = priors[param == "b",       min], max = priors[param == "b",       max])
+is_in_prior <- function(lambda, cond_rr, c, s, rr_ai) {
+  d <- dbeta(x = lambda, shape1 = priors[param == "lambda", alpha], shape2 = priors[param == "lambda", beta]) *
+       dunif(x = cond_rr, min = priors[param == "cond_rr", min], max = priors[param == "cond_rr", max]) * 
+       dunif(x = c,       min = priors[param == "c",       min], max = priors[param == "c",       max]) *
+       dunif(x = s,       min = priors[param == "s",       min], max = priors[param == "s",       max]) *
+       dunif(x = rr_ai,   min = priors[param == "rr_ai",   min], max = priors[param == "rr_ai", max])
   
   return(as.logical(d))
 }
@@ -75,7 +77,7 @@ calc_weights <- function(prev_iter_particles, weights, curr_iter_particles) {
   numerator   <- calc_numerator_weights(curr_iter_particles = curr_iter_particles)
   denominator <- calc_denominator_weights(prev_iter_particles = as.matrix(prev_iter_particles), 
                                           weights = weights, 
-                                          curr_iter_particles = as.matrix(curr_iter_particles[, .(prop_ai, a, b)]))
+                                          curr_iter_particles = as.matrix(curr_iter_particles[, .(lambda, cond_rr, c, s, rr_ai)]))
   return(numerator/denominator)
 }
 
@@ -90,9 +92,11 @@ calc_weights <- function(prev_iter_particles, weights, curr_iter_particles) {
 #######################################################################################
 
 calc_numerator_weights <- function(curr_iter_particles) {
-  curr_iter_particles[, d_prior := dunif(x = prop_ai, min = priors[param == "prop_ai", min], max = priors[param == "prop_ai", max]) * 
-                        dunif(x = a, min = priors[param == "a", min], max = priors[param == "a", max]) *
-                        dunif(x = b, min = priors[param == "b", min], max = priors[param == "b", max])]
+  curr_iter_particles[, d_prior := dbeta(x = lambda, shape1 = priors[param == "lambda", alpha], shape2 = priors[param == "lambda", beta]) *
+                        dunif(x = cond_rr, min = priors[param == "cond_rr", min], max = priors[param == "cond_rr", max]) * 
+                        dunif(x = c, min = priors[param == "c", min], max = priors[param == "c", max]) *
+                        dunif(x = s, min = priors[param == "s", min], max = priors[param == "s", max]) *
+                        dunif(x = rr_ai, min = priors[param == "rr_ai", min], max = priors[param == "rr_ai", max])]
   return(curr_iter_particles[, d_prior])
 }
 
