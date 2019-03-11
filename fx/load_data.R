@@ -27,6 +27,7 @@ load_data <- function() {
 
   load(file = paste0(getwd(), "/data-public/vl_dist.RDATA"),      envir = .GlobalEnv)
   load(file = paste0(getwd(), "/data-public/inf_obs.RData"),      envir = .GlobalEnv)
+  load(file = paste0(getwd(), "/data-public/inf_obs_arm.RData"),  envir = .GlobalEnv)
   load(file = paste0(getwd(), "/data-private/f_dt.RData"),        envir = .GlobalEnv)
   load(file = paste0(getwd(), "/data-public/p_rates_dt.RDATA"),   envir = .GlobalEnv)
   load(file = paste0(getwd(), "/data-private/age_mix_mat.RDATA"), envir = .GlobalEnv)

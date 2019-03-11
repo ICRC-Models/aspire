@@ -1,16 +1,12 @@
 #######################################################################################
 # 
 # Author: Kathryn Peebles
-# Date:   18 October 2017
+# Date:   9 March 2019
 # assign_adh_q1: Function to assign binary baseline adherence value according to parameters obtained in predictive model of adherence among ASPIRE trial participants (see email from EB dated 7 September 2018)
 #
 # input:  Subset of data in f_dt
 # output: Vector of 0/1 values indicating adherence at baseline.
 # 
-# assign_adh_fup: Function to assign binary follow-up adherence value according to parameters obtained in predictive model of adherence among ASPIRE trial participants (see email from EB dated 7 September 2018)
-#
-# input:  Subset of data in f_dt
-# output: Vector 0/1 values indicating adherence at time == t
 #######################################################################################
 
 assign_adh_q1 <- function(dt) {
@@ -52,6 +48,14 @@ assign_adh_q1 <- function(dt) {
   return(dt[, adh])
 }
 
+#######################################################################################
+#
+# assign_adh_fup: Function to assign binary follow-up adherence value according to parameters obtained in predictive model of adherence among ASPIRE trial participants (see email from EB dated 7 September 2018)
+#
+# input:  Subset of data in f_dt
+# output: Vector 0/1 values indicating adherence at time == t
+#
+#######################################################################################
 
 assign_adh_fup <- function(dt, t) {
   # Assigned adherence value at visits 2+ is based on predictive model for plasma dapivirine levels collected after Q1.
@@ -95,4 +99,21 @@ assign_adh_fup <- function(dt, t) {
   dt[arm == 1, adh := na.locf(adh, fromLast = T), by = id]
   
   return(dt[visit == t | visit == t - 1 | visit == t - 2, adh])
+}
+
+#######################################################################################
+#
+# assign_adh_secondary: Function to assign categorical adherence value at baseline and follow-up according to systematically varied proportion of women with consistent, inconsistent, and no adherence.
+#
+# input:  Subset of data in f_dt
+# output: Vector 1/2/3 values indicating adherence at time == t
+#
+#######################################################################################
+
+assign_adh_secondary <- function(dt, prop_full_adh, prop_partial_adh, prop_non_adh) {
+  
+  # 1 = consistent_adh, 2 = inconsistent_adh, 3 = no_adh
+  dt[, adh := sample(x = 1:3, size = 1, replace = T, prob = c(prop_full_adh, prop_partial_adh, prop_non_adh)), by = id]
+  
+  return(dt[, adh])
 }

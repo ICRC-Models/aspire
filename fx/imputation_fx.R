@@ -37,6 +37,7 @@ impute_unplw <- function(dt) {
 
 impute_anal_n_acts <- function(dt) {
   # 18 observations where transactional sex is missing. Rather than creating another predictive model for transactional sex, assign value with marginal probability of transactional sex (6.2%, per primary Baeten, et al., 2016 paper).
+  
   dt[is.na(b_trans_sex), b_trans_sex := as.double(rbinom(n = nrow(dt[is.na(b_trans_sex)]), size = 1, prob = 0.062))]
 
   dt[, log_odds_any_ai := params$pm_ai_intercept +

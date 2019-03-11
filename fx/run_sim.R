@@ -17,7 +17,7 @@ run_sim <- function(lambda = params$lambda, cond_rr = params$cond_rr, c = params
   
   f_dt[is.na(anal_n_acts) & (visit == 0 | visit == 3), anal_n_acts := impute_anal_n_acts(dt = f_dt[is.na(anal_n_acts) & (visit == 0 | visit == 3), .(id, visit, site, b_edu, b_depo, b_neten, b_trans_sex)])]
   
-  # Estimate per-parter average number of monthly anal acts (total average number of monthly AI acts divided by number of partners).
+  # Estimate per-partner average number of monthly anal acts (total average number of monthly AI acts divided by number of partners).
   f_dt[, n_ai_monthly_avg := round(mean(anal_n_acts, na.rm = T)/3, 2), by = id]
   f_dt[, pp_ai_acts_avg := round(n_ai_monthly_avg/b_n_part, 2)]
   

@@ -9,7 +9,7 @@
 #
 #######################################################################################
 
-run_sim_secondary <- function(lambda = params$lambda, cond_rr = params$cond_rr, c = params$c, s = params$s, rr_ai, prev_ai, prop_ai, prop_full_adh, prop_partial_adh, prop_non_adh, rr_ring_full_adh, rr_ring_partial_adh, i) {
+run_sim_secondary <- function(lambda = params$lambda, cond_rr = params$cond_rr, c = params$c, s = params$s, rr_ai, prev_ai, prop_ai, prop_full_adh, prop_partial_adh, prop_non_adh, rr_ring_full_adh, rr_ring_partial_adh, i, output_dir) {
   
   # Impute missing values for condom use in the last week and number of anal sex acts
   f_dt[is.na(b_condom_lweek) & visit == 0, b_condom_lweek := impute_unplw(dt = f_dt[is.na(b_condom_lweek) & visit == 0, .(id, m_hiv, b_sti, f_age, b_noalc, b_married)])]
@@ -140,5 +140,5 @@ run_sim_secondary <- function(lambda = params$lambda, cond_rr = params$cond_rr, 
   
   output <- list(likelihood = likelihood, prop_total_acts_ai = prop_total_acts_ai, prev_ai_sim = prev_ai_sim, prop_ai_sim = prop_ai_sim, prop_acts_ring_protected = prop_acts_ring_protected, prop_eff_dilution_non_adh = prop_eff_dilution_non_adh, prop_eff_dilution_ai = prop_eff_dilution_ai, i = i)
   
-  save(output, file = paste0(getwd(), "/output_", i, ".RDATA"))
+  save(output, file = paste0(output_dir, "/output_", i, ".RDATA"))
 }
