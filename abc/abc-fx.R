@@ -110,7 +110,7 @@ calc_numerator_weights <- function(curr_iter_particles) {
 #######################################################################################
 
 calc_denominator_weights <- function(prev_iter_particles, weights, curr_iter_particles) {
-  # Specify dimensions (number of particles) of prev_iter_particles
+  # Specify dimensions (number of parameters) of prev_iter_particles
   d <- ncol(prev_iter_particles)
   
   # Specify covariance matrix and inverse covariance matrix of particles in iteration t-1
