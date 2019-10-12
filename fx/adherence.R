@@ -12,7 +12,7 @@
 assign_adh_q1 <- function(dt) {
   # Assign adherence value at quarter 1 based on predictive model for plasma dapivirine levels collected at Q1.
   dt[arm == 1 & visit == 3, log_odds_adh := params$pm_adhb_intercept + 
-                               params$pm_adhb_age * b_f_age +
+                               params$pm_adhb_age * f_age +
                                params$pm_adhb_married * b_married +
                                params$pm_adhb_edu * b_edu + 
                                params$pm_adhb_base_gon * b_gon +
@@ -65,7 +65,7 @@ assign_adh_fup <- function(dt, t) {
                                params$pm_adhfu_lagadh1 * lag_adh +
                                params$pm_adhfu_visitnum * visit +
                                params$pm_adhfu_lagvisit_date_ind * prev_visit_date_after_Aug12013 +
-                               params$pm_adhfu_base_age * b_f_age +
+                               params$pm_adhfu_base_age * f_age +
                                params$pm_adhfu_base_married * b_married +
                                params$pm_adhfu_base_edu * b_edu + 
                                params$pm_adhfu_base_gon * b_gon +

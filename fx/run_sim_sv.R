@@ -52,7 +52,7 @@ run_sim_sv <- function(lambda = params$lambda, cond_rr = params$cond_rr, c = par
        vl := assign_male_vl_trt_known(dt = m_dt[id %in% f_dt[m_hiv == "positive" & m_arv == F, id], .(m_age, hiv)])]
   
   # Among married women, if reported partner HIV status is negative, set partner status to negative
-  m_dt[id %in% f_dt[b_married == 1 & m_hiv == "negative" & b_f_age_cat == "27-45", id], `:=`(hiv = as.integer(0), vl = as.integer(0))]
+  m_dt[id %in% f_dt[b_married == 1 & m_hiv == "negative" & f_age_cat == "27-45", id], `:=`(hiv = as.integer(0), vl = as.integer(0))]
   
   # Append fixed characteristics to f_dt that will vary in simulations
   f_dt[,  `:=`(prob_condom = assign_prob_condom(countries = f_dt[, country]),
@@ -66,9 +66,9 @@ run_sim_sv <- function(lambda = params$lambda, cond_rr = params$cond_rr, c = par
   # Assign adherence in quarterly intervals
   for(t in seq(3, 33, 3)) {
     if(t == 3) {
-      f_dt[visit %in% c(t, t - 1, t - 2), adh := assign_adh_q1(dt = f_dt[visit %in% c(t, t - 1, t - 2), .(id, visit, b_f_age, b_married, b_edu, b_gon, b_ct, b_trr, b_pknow, b_circ, b_noalc, b_npart_eq_two, b_npart_gt_two, enrolldt_after_Apr12013, arm, site)])]
+      f_dt[visit %in% c(t, t - 1, t - 2), adh := assign_adh_q1(dt = f_dt[visit %in% c(t, t - 1, t - 2), .(id, visit, f_age, b_married, b_edu, b_gon, b_ct, b_trr, b_pknow, b_circ, b_noalc, b_npart_eq_two, b_npart_gt_two, enrolldt_after_Apr12013, arm, site)])]
     } else {
-      f_dt[visit %in% c(t, t - 1, t - 2), adh := assign_adh_fup(dt = f_dt[visit %in% c(t, t - 1, t - 2, t - 3), .(id, visit, adh, b_f_age, b_married, b_edu, b_gon, b_ct, b_trr, b_pknow, b_circ, b_noalc, b_npart_eq_two, b_npart_gt_two, enrolldt_after_Apr12013, prev_visit_date_after_Aug12013, arm, site)], t = t)]
+      f_dt[visit %in% c(t, t - 1, t - 2), adh := assign_adh_fup(dt = f_dt[visit %in% c(t, t - 1, t - 2, t - 3), .(id, visit, adh, f_age, b_married, b_edu, b_gon, b_ct, b_trr, b_pknow, b_circ, b_noalc, b_npart_eq_two, b_npart_gt_two, enrolldt_after_Apr12013, prev_visit_date_after_Aug12013, arm, site)], t = t)]
     }
   }
   

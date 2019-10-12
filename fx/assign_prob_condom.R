@@ -11,8 +11,6 @@
 
 assign_prob_condom <- function(countries) {
   
-  load(paste0(getwd(), "/data-public/cond_dt.RData"))
-  
   prob_condom <- unlist(unname(sapply(unique(countries), function(x) {
     rbeta(n = sum(countries == x), shape1 = cond_dt[country == x, alpha], shape2 = cond_dt[country == x, beta])
   })))

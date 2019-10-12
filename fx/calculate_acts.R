@@ -16,9 +16,9 @@ calculate_acts <- function(f_dt, m_dt) {
   n_rel_dt[, id := as.numeric(id)]
   
   dt <- merge(x = n_rel_dt, y = data.table(id = 1:2614), by = "id", all = T)
-  dt[is.na(n_part), n_part := 0]
   
   dt <- merge(x = n_rel_dt, y = f_dt, by = "id", all = T)
+  dt[is.na(n_part), n_part := 0]
   
   # Women in the placebo arm have values of NA for adherence. Set these to 3 for calculation purposes.
   dt[is.na(adh), adh := 3]

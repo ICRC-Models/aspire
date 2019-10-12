@@ -5,6 +5,7 @@
 # Data from Elizabeth Brown, email dated 2018-02-08. Note that there are 2,614 observations here, while Baeten, 2016 reports 2,629 women in the trial.
 
 library(data.table)
+library(dplyr)
 library(lubridate)
 library(zoo)
 
@@ -28,7 +29,7 @@ acasi[, ptid := gsub(pattern = "-", replacement = "", x = ptid)]
 acasi[, ptid := as.numeric(gsub(pattern = " ", replacement = "", x = ptid))]
 
 dt <- merge(x = hiv,  y = acasi[survey == 1, .(ptid, QEXCH)], by = "ptid", all.x = T)
-dt <- merge(x = dt,   y = bba[, .(ptid, BBA3mvsn, numsp)])
+dt <- merge(x = dt,   y = bba[, .(ptid, BBA3mvsn, BBAlvsc, numsp)])
 
 # Create baseline variables to be used in prediction logit models for missing data and for adherence. For adherence model, values are from predictive model from Elizabeth Brown, but I've used coding from predictive models from Betsy (see document aspiresummPlasmaOnlyFINAL.pdf, page 2, for coding notes). Betsy's report lists coding as, e.g., if var = 1, new var = 1, 0 otherwise, so I assume missing values are coded as 0 below.
 dt[, `:=`(b_edu          = ifelse(edu == "Secondary or above", 1, 0),
@@ -50,8 +51,8 @@ dt[, `:=`(b_edu          = ifelse(edu == "Secondary or above", 1, 0),
           b_trans_sex    = ifelse(QEXCH == "                        " | QEXCH == "Skipped by participant  ", NA_real_, ifelse(QEXCH == "No                      ", 0, 1)),
           b_n_part       = ifelse(numsp == 0, 1, ifelse(numsp > 6, 6, numsp)))] # Set max number of baseline partners to 6 and minimum to 1 for use in partner_change function.
 
-# Create empty follow-up dataset to fill in monthly visits. 
-visits_dt <- as.data.table(expand.grid(ptid = unique(dt$ptid), visit = 0:34))
+# Create empty follow-up dataset to fill in monthly visits. Allow up to 150 visits.
+visits_dt <- as.data.table(expand.grid(ptid = unique(dt$ptid), visit = 0:150))
 setkey(visits_dt, ptid, visit)
 
 # Bring in time on-study to estimate the number of visits and the interval between visits
@@ -101,12 +102,24 @@ dt[, arm := ifelse(arm == "Placebo", 0, 1)]
 dt[, enrolldt_after_Apr12013 := as.numeric(enrolldt > as.Date("2013-04-01", format = "%Y-%m-%d"))]
 dt[, prev_visit_date_after_Aug12013 := as.numeric(shift(visit_date) > as.Date("2013-08-01", format = "%Y-%m-%d")), by = ptid]
 
-dt[, b_f_age_cat := c("18-21", "22-26", "27-45")[findInterval(x = dt$age, vec = c(18, 22, 27))]] # age categories (18-21, 22-26, 27-45)
+# Create age variables
+dt[, f_age := age]
+dt[, f_age_cat := c("18-21", "22-26", "27-45")[findInterval(x = dt$age, vec = c(18, 22, 27))]] # age categories (18-21, 22-26, 27-45)
 
 dt[, b_bv := as.numeric(basebv)]
 dt[, b_n_sti := sum(basesyp, basetrr, basect, basegon), by = c("ptid", "visit")]
 
 dt[, b_condom_lweek := as.numeric(!unplast7base)]
+
+# Create country-specific condom use proportion as the median proportion of women reporting condom use at last vaginal sex by country
+dt_cond <- dt[visit == 0, .(country, BBAlvsc)]
+dt_cond[, condom := ifelse(BBAlvsc == "NA", NA,
+                           ifelse(BBAlvsc == "neither", 0, 1))]
+
+dt_cond <- as.data.table(dt_cond %>% group_by(country) %>% summarise(n_condom = sum(condom, na.rm = T), n_country = sum(!is.na(condom))))
+dt_cond[, prop_condom := round(n_condom/n_country, 3)]
+
+dt <- merge(x = dt, y = dt_cond[, .(country, prop_condom)], by = "country", all.x = T)
 
 # Set max number of concurrent partners in simulation to b_n_part + 1. 
 dt[, max_part := b_n_part + 1]
@@ -128,15 +141,11 @@ dt[basehivsp == "" | basehivsp == "participant does not know", m_hiv := "unknown
 dt[basehivsp == "HIV positive", m_hiv := "positive"]
 dt[basehivsp == "HIV negative", m_hiv := "negative"]
 
-# Fill in ages for visits subsequent to baseline.
-setnames(x = dt, old = "age", new = "b_f_age")
-dt[, f_age := b_f_age + (30/365) * visit]
-
 ids <- data.table(ptid = unique(dt$ptid), id = 1:length(unique(dt$ptid)))
 dt <- merge(x = dt, y = ids, by = "ptid", all.x = T)
 
-f_dt <- dt[, .(id, visit, enrolldt, visit_date, on_study, site, country, arm, b_sti, b_trr, b_ct, b_gon, b_circ, b_noalc, b_f_age, f_age, b_pknow, m_arv, b_depo, b_neten, b_edu, b_married, b_npart_eq_two, b_npart_gt_two, b_trans_sex, b_n_part, anal_n_acts, enrolldt_after_Apr12013, prev_visit_date_after_Aug12013, b_f_age_cat, b_bv, b_n_sti, b_condom_lweek, max_part, pp_vi_acts_avg, m_hiv)]
+f_dt <- dt[, .(id, visit, enrolldt, visit_date, on_study, site, country, arm, b_sti, b_trr, b_ct, b_gon, b_circ, b_noalc, f_age, b_pknow, m_arv, b_depo, b_neten, b_edu, b_married, b_npart_eq_two, b_npart_gt_two, b_trans_sex, b_n_part, anal_n_acts, enrolldt_after_Apr12013, prev_visit_date_after_Aug12013, f_age_cat, b_bv, b_n_sti, b_condom_lweek, max_part, pp_vi_acts_avg, m_hiv, prop_condom)]
 
-setcolorder(x = f_dt, neworder = c("id", "visit", "visit_date", "on_study", "enrolldt", "country", "site", "b_f_age", "b_f_age_cat", "f_age", "b_n_part", "max_part", "b_npart_eq_two", "b_npart_gt_two", "pp_vi_acts_avg", "anal_n_acts", "b_trans_sex", "b_married", "b_edu", "b_noalc", "b_pknow", "m_hiv", "m_arv", "b_n_sti", "b_sti", "b_trr", "b_ct", "b_gon", "b_bv", "b_circ", "b_depo", "b_neten", "b_condom_lweek", "arm", "enrolldt_after_Apr12013", "prev_visit_date_after_Aug12013"))
+setcolorder(x = f_dt, neworder = c("id", "visit", "visit_date", "on_study", "enrolldt", "country", "site", "f_age", "f_age_cat", "b_n_part", "max_part", "b_npart_eq_two", "b_npart_gt_two", "pp_vi_acts_avg", "anal_n_acts", "b_trans_sex", "b_married", "b_edu", "b_noalc", "b_pknow", "m_hiv", "m_arv", "b_n_sti", "b_sti", "b_trr", "b_ct", "b_gon", "b_bv", "b_circ", "b_depo", "b_neten", "b_condom_lweek", "prop_condom", "arm", "enrolldt_after_Apr12013", "prev_visit_date_after_Aug12013"))
 
 save(f_dt, file = paste0(getwd(), "/f_dt.RData"))

@@ -52,7 +52,7 @@ run_sim_abc <- function(lambda, cond_rr, c, s, rr_ai, i) {
        vl := assign_male_vl_trt_known(dt = m_dt[id %in% f_dt[m_hiv == "positive" & m_arv == F, id], .(m_age, hiv)])]
   
   # Among married women, if reported partner HIV status is negative, set partner status to negative
-  m_dt[id %in% f_dt[b_married == 1 & m_hiv == "negative" & b_f_age_cat == "27-45", id], `:=`(hiv = as.integer(0), vl = as.integer(0))]
+  m_dt[id %in% f_dt[b_married == 1 & m_hiv == "negative" & f_age_cat == "27-45", id], `:=`(hiv = as.integer(0), vl = as.integer(0))]
   
   # Append fixed characteristics to f_dt that will vary in simulations
   f_dt[,  `:=`(prob_condom = assign_prob_condom(countries = f_dt[, country]),
@@ -66,9 +66,9 @@ run_sim_abc <- function(lambda, cond_rr, c, s, rr_ai, i) {
   # Assign adherence in quarterly intervals
   for(t in seq(3, 33, 3)) {
     if(t == 3) {
-      f_dt[visit %in% c(t, t - 1, t - 2), adh := assign_adh_q1(dt = f_dt[visit %in% c(t, t - 1, t - 2), .(id, visit, b_f_age, b_married, b_edu, b_gon, b_ct, b_trr, b_pknow, b_circ, b_noalc, b_npart_eq_two, b_npart_gt_two, enrolldt_after_Apr12013, arm, site)])]
+      f_dt[visit %in% c(t, t - 1, t - 2), adh := assign_adh_q1(dt = f_dt[visit %in% c(t, t - 1, t - 2), .(id, visit, f_age, b_married, b_edu, b_gon, b_ct, b_trr, b_pknow, b_circ, b_noalc, b_npart_eq_two, b_npart_gt_two, enrolldt_after_Apr12013, arm, site)])]
     } else {
-      f_dt[visit %in% c(t, t - 1, t - 2), adh := assign_adh_fup(dt = f_dt[visit %in% c(t, t - 1, t - 2, t - 3), .(id, visit, adh, b_f_age, b_married, b_edu, b_gon, b_ct, b_trr, b_pknow, b_circ, b_noalc, b_npart_eq_two, b_npart_gt_two, enrolldt_after_Apr12013, prev_visit_date_after_Aug12013, arm, site)], t = t)]
+      f_dt[visit %in% c(t, t - 1, t - 2), adh := assign_adh_fup(dt = f_dt[visit %in% c(t, t - 1, t - 2, t - 3), .(id, visit, adh, f_age, b_married, b_edu, b_gon, b_ct, b_trr, b_pknow, b_circ, b_noalc, b_npart_eq_two, b_npart_gt_two, enrolldt_after_Apr12013, prev_visit_date_after_Aug12013, arm, site)], t = t)]
     }
   }
   
@@ -98,7 +98,7 @@ run_sim_abc <- function(lambda, cond_rr, c, s, rr_ai, i) {
   
   ## TO DO: Ask EB: Sum of simulated infections by age group uses age group at baseline, as does summary of observed infections. Is this correct?
   # Sum infections, sample size, and person-time by age group for the placebo arm (ABC will fit parameters only to placebo arm).
-  inf_sim <- as.data.table(f_dt[arm == 0] %>% group_by(b_f_age_cat) %>% summarise(hiv_inf = sum(hiv), n = length(unique(id)), py = sum(as.numeric(visit_date - enrolldt)/365)))
+  inf_sim <- as.data.table(f_dt[arm == 0] %>% group_by(f_age_cat) %>% summarise(hiv_inf = sum(hiv), n = length(unique(id)), py = sum(as.numeric(visit_date - enrolldt)/365)))
    
   if(!all(inf_sim[, n] == inf_obs[, n])) { stop("Number of participants in simulation not equal to number of participants in trial.") }
   
