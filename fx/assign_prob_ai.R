@@ -6,16 +6,19 @@
 #
 #######################################################################################
 
-assign_prob_ai <- function(ids, prev_ai, prop_ai) {
-  ai <- rbinom(n = length(ids), size = 1, prob = prev_ai)
+assign_prob_ai <- function(dt, prev_ai, prop_ai) {
+  
+  dt <- merge(x = dt, y = prop_ai_dt[, .SD, .SDcols = c("site", prev_ai)], by = "site")
+  setnames(dt, old = prev_ai, new = "prev_ai")
+  
+  dt[, ai := rbinom(n = nrow(dt), size = 1, prob = prev_ai)]
   
   ab_params <- est_beta_params(mu = prop_ai, var = 0.005)
   
-  ai[ai == 1] <- rbeta(sum(ai), ab_params$alpha, ab_params$beta)
+  dt[ai == 1, prob_ai := rbeta(nrow(dt[ai == 1]), ab_params$alpha, ab_params$beta)]
+  dt[ai == 0, prob_ai := 0]
   
-  ai_dt <- data.table(id = ids, prob_ai = ai)
-  
-  return(ai_dt)
+  return(dt[, .(id = id, prob_ai = prob_ai)])
 }
 
 #######################################################################################

@@ -9,11 +9,11 @@
 #
 #######################################################################################
 
-run_sim_secondary <- function(lambda = params$lambda, cond_rr = params$cond_rr, c = params$c, s = params$s, rr_ai, prev_ai, prop_ai, prop_full_adh, prop_partial_adh, prop_non_adh, rr_ring_full_adh, rr_ring_partial_adh, i, output_dir, debug_rerandomize = F) {
+run_sim_secondary <- function(lambda = params$lambda, cond_rr = params$cond_rr, c = params$c, s = params$s, rr_ai, prev_ai, prop_ai = 0.078, prop_full_adh, prop_partial_adh = 0, prop_non_adh = 0.25, rr_ring, rr_ring_partial_adh = 1, i, output_dir, re_randomize = F) {
   
   load(file = paste0(wd, "/data-private/f_dt.RData"))
   
-  if(debug_rerandomize) {
+  if(re_randomize) {
     # Create new variable to indicate if an individual reports a number of average monthly acts that is greater than the median reported number of monthly acts.
     f_dt[, gt_median_acts := as.numeric(pp_vi_acts_avg * b_n_part > median(pp_vi_acts_avg * b_n_part))]
     
@@ -23,25 +23,16 @@ run_sim_secondary <- function(lambda = params$lambda, cond_rr = params$cond_rr, 
     f_dt[!(id %in% dpv_ids), arm := 0]
   }
   
-  # Impute missing values for condom use in the last week and number of anal sex acts
+  # Impute missing values for condom use in the last week
   f_dt[is.na(b_condom_lweek) & visit == 0, b_condom_lweek := impute_unplw(dt = f_dt[is.na(b_condom_lweek) & visit == 0, .(id, m_hiv, b_sti, f_age, b_noalc, b_married)])]
   f_dt[, b_condom_lweek := na.locf(b_condom_lweek), by = id]
   
-  f_dt[is.na(anal_n_acts) & (visit == 0 | visit == 3), anal_n_acts := impute_anal_n_acts(dt = f_dt[is.na(anal_n_acts) & (visit == 0 | visit == 3), .(id, visit, site, b_edu, b_depo, b_neten, b_trans_sex)])]
+  # Assign proportion of AI acts to each woman given study site
+  f_dt <- merge(x = f_dt, y = assign_prob_ai(dt = unique(f_dt[, .(site, id)]), prev_ai = prev_ai, prop_ai = prop_ai), by = "id", all = T)
   
-  # Estimate per-partner average number of monthly anal acts (total average number of monthly AI acts divided by number of partners).
-  f_dt[, n_ai_monthly_avg := round(mean(anal_n_acts, na.rm = T)/3, 2), by = id]
-  f_dt[, pp_ai_acts_avg := round(n_ai_monthly_avg/b_n_part, 2)]
-  
-  # Estimate total per-partner average number of acts (VI + AI)
-  f_dt[, pp_acts_avg := pp_vi_acts_avg + pp_ai_acts_avg]
-  
-  # Assign proportion of AI acts to each woman
-  f_dt <- merge(x = f_dt, y = assign_prob_ai(ids = f_dt[, unique(id)], prev_ai = prev_ai, prop_ai = prop_ai), by = "id", all = T)
-  
-  # Redistribute VI and AI acts so that the total number of acts remains approximately constant across simulations with varying prevalence and frequency of AI
-  f_dt[, pp_vi_acts_avg := pp_acts_avg * (1 - prob_ai)]
-  f_dt[, pp_ai_acts_avg := pp_acts_avg * prob_ai]
+  # Redistribute VI acts so that the total number of acts remains approximately constant across simulations with varying prevalence and frequency of AI
+  f_dt[, pp_vi_acts_avg := pp_vi_acts_avg * (1 - prob_ai)]
+  f_dt[, pp_ai_acts_avg := pp_vi_acts_avg * prob_ai]
   
   # Assign relative probability of having an HIV-positive male partner
   f_dt[, m_hiv_rr := sapply(f_age, function(x) { assign_m_hiv_rr(age = x, c = c, s = s) })]
@@ -116,19 +107,19 @@ run_sim_secondary <- function(lambda = params$lambda, cond_rr = params$cond_rr, 
       t     = t,
       l     = lambda,
       rr_ai = rr_ai,
-      rr_ring_full_adh    = rr_ring_full_adh,
-      rr_ring_partial_adh = rr_ring_partial_adh,
-      ri_dt     = risk_inf_dt,
-      b_dt      = balanced_dt)]
+      rr_ring_full_adh = rr_ring,
+      rr_ring_partial_adh = 1,
+      ri_dt   = risk_inf_dt,
+      b_dt    = balanced_dt)]
     
-    # Calculate number of acts of each type (VI and AI) and protection (adherent, partially adherent, not adherent)
+    # Calculate number of acts of each type (VI and AI) and protection (adherent or not adherent)
     f_dt[visit == t, c("n_acts_vi", "n_acts_ai", "n_acts_full_adh", "n_acts_partial_adh", "n_acts_non_adh") := calculate_acts(f_dt = f_dt[visit == t, .(id, adh, pp_vi_acts, pp_ai_acts)], m_dt = m_dt[active == 1, id])]
     
     # HIV transmission is calculated at each time step independently of HIV status at previous time steps. Track if HIV transmission has occurred at any time step in order to complete incidence and survival analyses correctly.
     f_dt[visit == t, any_hiv := as.numeric(f_dt[visit %in% 1:t, any(hiv == 1), by = id]$V1)]
     
     # Track number of active partnerships at each timestep
-    n_active_partnerships[t]     <- m_dt[, sum(active)]
+    n_active_partnerships[t] <- m_dt[, sum(active)]
     
     # Partner change
     m_dt <- partner_change(m_dt = m_dt, f_dt = f_dt[visit == t, .(id, arm, country, f_age, max_part, b_condom_lweek, m_hiv_rr)], cond_rr = cond_rr)
@@ -183,10 +174,10 @@ run_sim_secondary <- function(lambda = params$lambda, cond_rr = params$cond_rr, 
   # Calculate proportion of ring-protected acts among women in dapivirine arm as the proportion acts in which women are fully adherent + the proportion of acts in which women are partially adherent * the ratio of protection from partial adherence to protection from full adherence.
   prop_acts_full_adh    <- f_dt[arm == 1, sum(n_acts_full_adh, na.rm = T)/(sum(n_acts_full_adh, n_acts_partial_adh, n_acts_non_adh, na.rm = T))]
   prop_acts_partial_adh <- f_dt[arm == 1, sum(n_acts_partial_adh, na.rm = T)/(sum(n_acts_full_adh, n_acts_partial_adh, n_acts_non_adh, na.rm = T))]
-  prop_acts_ring_protected <- prop_acts_full_adh + prop_acts_partial_adh * (rr_ring_partial_adh/rr_ring_full_adh)
+  prop_acts_ring_protected <- prop_acts_full_adh + prop_acts_partial_adh * (rr_ring_partial_adh/rr_ring)
   
   # Calculate proportion of HIV infections in the dapivirine arm that are attributable to non-adherence and AI
-  n_inf_non_adh <- f_dt[arm == 1 & adh == 2 & inf_act_type == "vi", sum(hiv) * (1 - rr_ring_partial_adh/rr_ring_full_adh)] +
+  n_inf_non_adh <- f_dt[arm == 1 & adh == 2 & inf_act_type == "vi", sum(hiv) * (1 - rr_ring_partial_adh/rr_ring)] +
                    f_dt[arm == 1 & adh == 3 & inf_act_type == "vi", sum(hiv)]
   n_inf_ai      <- f_dt[arm == 1 & inf_act_type == "ai", sum(hiv)]
   
@@ -201,7 +192,7 @@ run_sim_secondary <- function(lambda = params$lambda, cond_rr = params$cond_rr, 
   hr_lb <- unname(summary(f_dt[, coxph(formula = Surv(time = as.numeric(visit_date - enrolldt)/365, event = hiv) ~ arm + strata(site))])$conf.int[3])
   hr_ub <- unname(summary(f_dt[, coxph(formula = Surv(time = as.numeric(visit_date - enrolldt)/365, event = hiv) ~ arm + strata(site))])$conf.int[4])
   
-  if(debug_rerandomize) {
+  if(re_randomize) {
     # If re-randomization occured, calculate the hazard ratio stratified by site, BV status, and dichotomous average monthly number of sex acts
     hr_strat <- unname(summary(f_dt[, coxph(formula = Surv(time = as.numeric(visit_date - enrolldt)/365, event = hiv) ~ arm + strata(site) + strata(b_bv) + strata(gt_median_acts))])$conf.int[1])
     hr_strat_lb <- unname(summary(f_dt[, coxph(formula = Surv(time = as.numeric(visit_date - enrolldt)/365, event = hiv) ~ arm + strata(site) + strata(b_bv) + strata(gt_median_acts))])$conf.int[3])
