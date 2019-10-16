@@ -9,7 +9,7 @@
 #
 #######################################################################################
 
-run_sim_secondary <- function(lambda = params$lambda, cond_rr = params$cond_rr, c = params$c, s = params$s, rr_ai, prev_ai, prop_ai = 0.078, prop_full_adh, prop_partial_adh = 0, prop_non_adh = 0.25, rr_ring, rr_ring_partial_adh = 1, i, output_dir, re_randomize = F) {
+run_sim_secondary <- function(lambda = params$lambda, cond_rr = params$cond_rr, c = params$c, s = params$s, rr_ai, prev_ai, prop_ai = 0.078, prop_adh, rr_ring, i, output_dir, re_randomize = F) {
   
   load(file = paste0(wd, "/data-private/f_dt.RData"))
   
@@ -75,11 +75,11 @@ run_sim_secondary <- function(lambda = params$lambda, cond_rr = params$cond_rr, 
   # Add variable to track HIV infection through simulations
   f_dt[visit == 0, hiv := as.integer(0)]
   
-  # Assign adherence to both placebo and active arms. Assign to placebo in order to create a comparable group for analyses comparing women across arms by adherence status.
-  f_dt[, adh := assign_adh_secondary(dt = f_dt[, .(id, visit)], prop_full_adh = prop_full_adh, prop_partial_adh = prop_partial_adh, prop_non_adh = prop_non_adh)]
+  # Assign adherence to both placebo and active arms. Assign to placebo in order to create a comparable group for analyses comparing women across arms by adherence status. f_dt has key of id and visit before and after assign_adh function, so below code will merge correctly by id and visit.
+  f_dt[, adh := assign_adh(dt = f_dt[, .(id, visit, site)], prop_adh = prop_adh)]
   
   # Create table to track cumulative risk in the placebo and active arms. The number of time steps will be variable, so make the table very large, and then reduce size below. 
-  risk_inf_dt <- as.data.table(expand.grid(time = 1:150, arm = as.double(0:1), n_inf_total = NA_real_, n_inf_pre_ring = NA_real_, n_acts_total = NA_real_, n_inf_one_inf_per_woman = NA_real_, n_acts_one_inf_per_woman = NA_real_, n_inf_total_vi_excl = NA_real_, n_acts_total_vi_excl = NA_real_, n_inf_total_vi_excl_adh = NA_real_, n_acts_total_vi_excl_adh = NA_real_, n_inf_total_any_ai = NA_real_, n_acts_total_any_ai = NA_real_, n_inf_total_any_ai_adh = NA_real_, n_acts_total_any_ai_adh = NA_real_))
+  risk_inf_dt <- as.data.table(expand.grid(time = 1:150, arm = as.double(0:1), n_inf = NA_real_, n_inf_pre_ring = NA_real_, n_acts = NA_real_, n_inf_vi_excl = NA_real_, n_acts_vi_excl = NA_real_, n_inf_vi_excl_adh = NA_real_, n_acts_vi_excl_adh = NA_real_, n_inf_any_ai = NA_real_, n_acts_any_ai = NA_real_, n_inf_any_ai_adh = NA_real_, n_acts_any_ai_adh = NA_real_))
   setkey(risk_inf_dt, time)
   
   # Create data table to track co-factors for HIV infection by arm and risk, prior to application of RR of ring.
@@ -91,7 +91,7 @@ run_sim_secondary <- function(lambda = params$lambda, cond_rr = params$cond_rr, 
   t         <- 1
   
   # Create vector to track the number of active partnerships at each timestep
-  n_active_partnerships     <- numeric(150)
+  n_active_partnerships <- numeric(150)
   
   # Run simulation until 168 infections have occurred
   while(n_hiv_inf < 168) {
@@ -102,18 +102,17 @@ run_sim_secondary <- function(lambda = params$lambda, cond_rr = params$cond_rr, 
     
     # HIV transmission
     f_dt[visit == t, c("hiv", "n_acts_hiv_pos", "cum_risk_pre_ring", "inf_act_type") := hiv_transmission(
-      f_dt  = f_dt[visit == t, .(id, adh, f_age, pp_vi_acts, pp_ai_acts, b_n_sti, b_bv, arm, prob_condom, any_ai = pp_ai_acts_avg > 0)],
-      m_dt  = m_dt[active == 1 & hiv == 1, .(id, vl)],
-      t     = t,
-      l     = lambda,
-      rr_ai = rr_ai,
-      rr_ring_full_adh = rr_ring,
-      rr_ring_partial_adh = 1,
+      f_dt    = f_dt[visit == t, .(id, adh, f_age, pp_vi_acts, pp_ai_acts, b_n_sti, b_bv, arm, prob_condom, any_ai = pp_ai_acts_avg > 0)],
+      m_dt    = m_dt[active == 1 & hiv == 1, .(id, vl)],
+      t       = t,
+      l       = lambda,
+      rr_ai   = rr_ai,
+      rr_ring = rr_ring,
       ri_dt   = risk_inf_dt,
       b_dt    = balanced_dt)]
     
     # Calculate number of acts of each type (VI and AI) and protection (adherent or not adherent)
-    f_dt[visit == t, c("n_acts_vi", "n_acts_ai", "n_acts_full_adh", "n_acts_partial_adh", "n_acts_non_adh") := calculate_acts(f_dt = f_dt[visit == t, .(id, adh, pp_vi_acts, pp_ai_acts)], m_dt = m_dt[active == 1, id])]
+    f_dt[visit == t, c("n_acts_vi", "n_acts_ai", "n_acts_adh", "n_acts_non_adh") := calculate_acts(f_dt = f_dt[visit == t, .(id, adh, pp_vi_acts, pp_ai_acts)], m_dt = m_dt[active == 1, id])]
     
     # HIV transmission is calculated at each time step independently of HIV status at previous time steps. Track if HIV transmission has occurred at any time step in order to complete incidence and survival analyses correctly.
     f_dt[visit == t, any_hiv := as.numeric(f_dt[visit %in% 1:t, any(hiv == 1), by = id]$V1)]
@@ -157,9 +156,9 @@ run_sim_secondary <- function(lambda = params$lambda, cond_rr = params$cond_rr, 
   f_dt <- f_dt[visit <= censor_visit]
   
   # Also remove rows from risk_inf_dt subsequent to the censor_visit and columns from n_active_partnerships
-  risk_inf_dt     <- risk_inf_dt[time <= censor_visit]
-  balanced_dt     <- balanced_dt[time <= censor_visit]
-  n_active_partnerships     <- n_active_partnerships[1:censor_visit]
+  risk_inf_dt           <- risk_inf_dt[time <= censor_visit]
+  balanced_dt           <- balanced_dt[time <= censor_visit]
+  n_active_partnerships <- n_active_partnerships[1:censor_visit]
   
   exp_dt <- f_dt[n_acts_hiv_pos > 0, .(exposures = sum(n_acts_hiv_pos), pre_ring_risk = mean(cum_risk_pre_ring)), by = c("visit", "arm")]
   
@@ -171,14 +170,11 @@ run_sim_secondary <- function(lambda = params$lambda, cond_rr = params$cond_rr, 
   prev_ai_sim <- sum(f_dt[, any(n_acts_ai > 0, na.rm = T), by = id]$V1)/f_dt[, length(unique(id))]
   prop_ai_sim <- f_dt[id %in% f_dt[, any(n_acts_ai > 0, na.rm = T), by = id][V1 == T, id], sum(n_acts_ai, na.rm = T)/(sum(n_acts_ai, n_acts_vi, na.rm = T))]
   
-  # Calculate proportion of ring-protected acts among women in dapivirine arm as the proportion acts in which women are fully adherent + the proportion of acts in which women are partially adherent * the ratio of protection from partial adherence to protection from full adherence.
-  prop_acts_full_adh    <- f_dt[arm == 1, sum(n_acts_full_adh, na.rm = T)/(sum(n_acts_full_adh, n_acts_partial_adh, n_acts_non_adh, na.rm = T))]
-  prop_acts_partial_adh <- f_dt[arm == 1, sum(n_acts_partial_adh, na.rm = T)/(sum(n_acts_full_adh, n_acts_partial_adh, n_acts_non_adh, na.rm = T))]
-  prop_acts_ring_protected <- prop_acts_full_adh + prop_acts_partial_adh * (rr_ring_partial_adh/rr_ring)
+  # Calculate proportion of ring-protected acts among women in dapivirine arm
+  prop_acts_adh <- f_dt[arm == 1, sum(n_acts_adh, na.rm = T)/(sum(n_acts_adh, n_acts_non_adh, na.rm = T))]
   
   # Calculate proportion of HIV infections in the dapivirine arm that are attributable to non-adherence and AI
-  n_inf_non_adh <- f_dt[arm == 1 & adh == 2 & inf_act_type == "vi", sum(hiv) * (1 - rr_ring_partial_adh/rr_ring)] +
-                   f_dt[arm == 1 & adh == 3 & inf_act_type == "vi", sum(hiv)]
+  n_inf_non_adh <- f_dt[arm == 1 & adh == 0 & inf_act_type == "vi", sum(hiv)]
   n_inf_ai      <- f_dt[arm == 1 & inf_act_type == "ai", sum(hiv)]
   
   prop_eff_dilution_non_adh <- n_inf_non_adh/(n_inf_non_adh + n_inf_ai)
@@ -192,19 +188,7 @@ run_sim_secondary <- function(lambda = params$lambda, cond_rr = params$cond_rr, 
   hr_lb <- unname(summary(f_dt[, coxph(formula = Surv(time = as.numeric(visit_date - enrolldt)/365, event = hiv) ~ arm + strata(site))])$conf.int[3])
   hr_ub <- unname(summary(f_dt[, coxph(formula = Surv(time = as.numeric(visit_date - enrolldt)/365, event = hiv) ~ arm + strata(site))])$conf.int[4])
   
-  if(re_randomize) {
-    # If re-randomization occured, calculate the hazard ratio stratified by site, BV status, and dichotomous average monthly number of sex acts
-    hr_strat <- unname(summary(f_dt[, coxph(formula = Surv(time = as.numeric(visit_date - enrolldt)/365, event = hiv) ~ arm + strata(site) + strata(b_bv) + strata(gt_median_acts))])$conf.int[1])
-    hr_strat_lb <- unname(summary(f_dt[, coxph(formula = Surv(time = as.numeric(visit_date - enrolldt)/365, event = hiv) ~ arm + strata(site) + strata(b_bv) + strata(gt_median_acts))])$conf.int[3])
-    hr_strat_ub <- unname(summary(f_dt[, coxph(formula = Surv(time = as.numeric(visit_date - enrolldt)/365, event = hiv) ~ arm + strata(site) + strata(b_bv) + strata(gt_median_acts))])$conf.int[4])
-    
-    output <- list(hr = hr, hr_lb = hr_lb, hr_ub = hr_ub, hr_strat = hr_strat, hr_strat_lb = hr_strat_lb, hr_strat_ub = hr_strat_ub, prop_total_acts_ai = prop_total_acts_ai, prev_ai_sim = prev_ai_sim, prop_ai_sim = prop_ai_sim, prop_acts_ring_protected = prop_acts_ring_protected, prop_eff_dilution_non_adh = prop_eff_dilution_non_adh, prop_eff_dilution_ai = prop_eff_dilution_ai, i = i, ri_dt = risk_inf_dt, study_dt = f_dt, n_active_part = n_active_partnerships, male_dt = m_dt, b_dt = balanced_dt, n_part_hiv_pos_dt = n_part_hiv_dt, hiv_assign_dt = check_hiv_assignment_dt, exposure_dt = exp_dt)
-    
-  } else {
-    
-    output <- list(hr = hr, hr_lb = hr_lb, hr_ub = hr_ub, prop_total_acts_ai = prop_total_acts_ai, prev_ai_sim = prev_ai_sim, prop_ai_sim = prop_ai_sim, prop_acts_ring_protected = prop_acts_ring_protected, prop_eff_dilution_non_adh = prop_eff_dilution_non_adh, prop_eff_dilution_ai = prop_eff_dilution_ai, i = i, ri_dt = risk_inf_dt, study_dt = f_dt, n_active_part = n_active_partnerships, male_dt = m_dt, b_dt = balanced_dt, n_part_hiv_pos_dt = n_part_hiv_dt, hiv_assign_dt = check_hiv_assignment_dt, exposure_dt = exp_dt)
-    
-  }
+  output <- list(hr = hr, hr_lb = hr_lb, hr_ub = hr_ub, prop_total_acts_ai = prop_total_acts_ai, prev_ai_sim = prev_ai_sim, prop_ai_sim = prop_ai_sim, prop_eff_dilution_non_adh = prop_eff_dilution_non_adh, prop_eff_dilution_ai = prop_eff_dilution_ai, i = i, ri_dt = risk_inf_dt, study_dt = f_dt, n_active_part = n_active_partnerships, male_dt = m_dt, b_dt = balanced_dt, n_part_hiv_pos_dt = n_part_hiv_dt, hiv_assign_dt = check_hiv_assignment_dt, exposure_dt = exp_dt)
   
   rm(list = c("f_dt", "m_dt"))
   
