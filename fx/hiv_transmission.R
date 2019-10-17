@@ -86,6 +86,9 @@ hiv_transmission <- function(f_dt, m_dt, t, l, rr_ai, rr_ring, ri_dt = NULL, b_d
   censor_dt <- dt[, .SD[cumsum(cumsum(hiv_act)) <= 1], by = id]
   exposure_dt <- censor_dt[, .(n_acts_hiv_pos = max(act_id), cum_risk_pre_ring = 1 - Reduce(f = `*`, x = (1 - risk_inf_pre_ring))), by = id]
   
+  # Create a data table with information from each act needed to estimate risk by arm over time. Push to global environment to combine with the same table from other timesteps.
+  per_act_risk_dt <<- dt[, .(id, time = t, arm, risk_inf = risk_inf_pre_ring, hiv_act, act_id, post_enrollment, early_term_censor)]
+  
   # Create table to track act type at which each infection occurred (arm and adh are already tracked in f_dt)
   act_dt <- censor_dt[hiv_act == 1, .(id, inf_act_type = ifelse(ai == 1, "ai", "vi"))]
   

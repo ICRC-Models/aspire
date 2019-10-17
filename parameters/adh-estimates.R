@@ -19,7 +19,7 @@ hiv_dt[, ptid := as.numeric(ptid)]
 adh_dt[, adh := ifelse(conc > 95, 1, 0)]
 
 # Merge relevant variables on id
-dt <- merge(x = adh_dt[, .(ptid, adh, visit)], y = hiv_dt[, .(ptid, site, arm)], by = "ptid", all = T)
+dt <- merge(x = adh_dt[, .(ptid, adh, visit)], y = hiv_dt[, .(ptid, site, arm, age)], by = "ptid", all = T)
 
 # Remove observations from women not confirmed to be HIV-negative at enrollment and with at least one follow-up HIV test (i.e., limit to cohort of 2,614 women in mITT analyses). Also remove observations from women in the placebo arm.
 dt <- dt[ptid %in% hiv_dt[, unique(ptid)] & arm == "Dapivirine"]
@@ -30,7 +30,10 @@ dt <- dt[!is.na(adh)]
 # Format site variable to be concordant with formatting in f_dt
 dt[, site := tstrsplit(x = site, split = ": ", keep = 2)]
 
-prop_adh_dt <- as.data.table(dt %>% group_by(site) %>% summarise(prop_adh_obs = mean(adh)))
+# Create age category variable
+dt[, age_cat := ifelse(age <= 26, "18-26", "27-45")]
+
+prop_adh_dt <- as.data.table(dt %>% group_by(site, age_cat) %>% summarise(prop_adh_obs = mean(adh)))
 
 # For baseline simulations, use observed prevalence of adherence. In sensitivity analyses, use values of 50% to 100% adherence. Modify site prevalence in proportion to its observed prevalence in order to maintain the same relative adherence by site.
 mean_adh_obs <- prop_adh_dt[, mean(prop_adh_obs)] # Value of 81% is slightly different than 82% estimated from dt[, mean(adh)] due to variation in person-time by site. Weighted average should be equal. However, because the difference is so small, will use an unweighted average.
@@ -49,13 +52,18 @@ prop_adh_dt[, `:=`(`50` = prop_adh_obs * (1 - (mean_adh_obs - 0.50)/mean_adh_obs
                    `100` = 1)]
 
 # Adjust estimates of adherence greater than 100%.
+prop_adh_dt[`85` > 1, `85` := 1]
+mean_adh_85 <- prop_adh_dt[, mean(`85`)]
+prop_adh_dt[`85` < 1, `85` := `85` * (1 + ((0.85 - mean_adh_85)/0.85))]
+
 prop_adh_dt[`90` > 1, `90` := 1]
 mean_adh_90 <- prop_adh_dt[, mean(`90`)]
-prop_adh_dt[`90` < 1, `90` := `90` * (1 + ((0.90 - mean_adh_90)/0.90))]
+prop_adh_dt[`90` < 1, `90` := `90` * (1 + ((0.9025 - mean_adh_90)/0.9025))] # Since we're increasing the mean only among the subset of women with adherence less than 100%, the relative proportion increase needs to be adjusted upward to result in overall mean adherence of 90%.
+prop_adh_dt[`90` > 1, `90` := 1]
 
 prop_adh_dt[`95` > 1, `95` := 1]
 mean_adh_95 <- prop_adh_dt[, mean(`95`)]
-prop_adh_dt[`95` < 1, `95` := `95` * (1 + ((0.96 - mean_adh_95)/0.96))] # Since we're increasing the mean only among the subset of women with adherence less than 100%, the relative proportion increase needs to be adjusted upward to result in overall mean adherence of 95%.
+prop_adh_dt[`95` < 1, `95` := `95` * (1 + ((0.9675 - mean_adh_95)/0.9675))] # Since we're increasing the mean only among the subset of women with adherence less than 100%, the relative proportion increase needs to be adjusted upward to result in overall mean adherence of 95%.
 prop_adh_dt[`95` > 1, `95` := 1]
 
 save(prop_adh_dt, file = "~/Documents/code/aspire/data-public/adh_dt.RData")

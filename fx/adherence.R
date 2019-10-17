@@ -12,7 +12,11 @@
 
 assign_adh <- function(dt, prop_adh) {
   
-  dt <- merge(x = dt, y = prop_adh_dt[, .SD, .SDcols = c("site", prop_adh)], by = "site")
+  # Create age category to merge on
+  dt[, age_cat := ifelse(f_age <= 26, "18-26", "27-45")]
+  
+  # Merge simulated data were proportion adherent by site and age group
+  dt <- merge(x = dt, y = prop_adh_dt[, .SD, .SDcols = c("site", "age_cat", prop_adh)], by = c("site", "age_cat"))
   setnames(dt, old = prop_adh, new = "prop_adh")
   
   setkey(dt, id, visit)

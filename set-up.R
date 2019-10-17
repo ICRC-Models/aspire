@@ -1,7 +1,5 @@
-## TO DO: Write code to identify characteristics of act at which transmission occurred (e.g., ai vs. vi, adh = 0/1)
-
-# options(warn = 2) # Turn warnings into errors
-# options(error = browser) # Enter browser on error
+## Purpose: Source functions and load data needed to run ASPIRE model simulations
+## Author:  Kathryn Peebles
 
 if(grepl(pattern = "Linux", Sys.info()['sysname'])) {
   wd <- "/gscratch/csde/kpeebles"
@@ -27,7 +25,7 @@ sapply(source_files, function(x) source(x))
 suppressWarnings(load_data())
 
 ## Load parameters
-params_dt <- as.data.table(read_excel(paste0(wd, "/parameters/parameters.xlsx"), range = "A1:B97", col_names = T))
+params_dt <- as.data.table(read_excel(paste0(wd, "/parameters/parameters.xlsx"), range = "A1:B21", col_names = T))
 params <- lapply(params_dt[, name], function(x) { x = params_dt[name == x, value] })
 names(params) <- params_dt[, name]
 
