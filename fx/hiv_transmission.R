@@ -23,8 +23,12 @@ hiv_transmission <- function(f_dt, m_dt, t, l, rr_ai, rr_ring, ri_dt = NULL, b_d
   # Assign condom use (condom/no condom) to each act.
   dt[, condom := rbinom(n = 1:nrow(dt), size = 1, prob = prob_condom)]
   
+  # Identify acute infections
+  dt[, acute := ifelse(t_inf %in% (t - 2):t, 1, 0)]
+  
   # Estimate per-act risk of acquiring HIV for all co-factors
   dt[, risk_inf := 1 - ((1 - l) ^ exp(log(params$rr_vl) * (vl - 4.0) +
+                                      log(params$rr_acute) * acute +
                                       log(params$rr_age) * (f_age - 30) +
                                       log(params$rr_condom) * condom +
                                       log(rr_ai) * ai +

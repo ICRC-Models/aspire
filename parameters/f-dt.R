@@ -47,6 +47,9 @@ visits_dt[visit != 0, model_calendar_time := first_enroll_dt + ((365.25/12) * vi
 # Create variable to indicate if model calendar time is on or after date of enrollment (by each woman)
 visits_dt[, post_enrollment := ifelse(model_calendar_time >= enrolldt, 1, 0)]
 
+# Create variable to indicate if model calendar time is on or after Sept. 1, 2013 (adherence interventions were implemented on 8/1/2013 and visits were monthly, so we wouldn't expect an effect of the adherence interventions to show up until at least 30 days later).
+visits_dt[, post_adh_intervention := ifelse(model_calendar_time >= as.Date("2013-09-01", format = "%Y-%m-%d"), 1, 0)]
+
 # Create variable to indicate if model calendar time is after the date of early study termination (by woman). For women who ended the study per schedule, this indicator is 0 for all visits. For women who seroconverted, this indicator is 0 for all visits (women may have been more likely to terminate study participation following seroconversion, but were on study until seroconversion. We will treat this as an indication of willingness to continue participation in the absence of seroconversion).
 visits_dt[, early_term_censor := ifelse(termrsn != "Sched. exit visit" & censor == 0, as.numeric(model_calendar_time > censordt), 0)]
 
@@ -62,7 +65,7 @@ visits_dt[ptid == 312402776 & visit == 17, post_enrollment := 1]
 visits_dt[ptid == 318303968 & visit == 21, post_enrollment := 1]
 
 # Merge data table with all monthly visit dates with baseline variables. Carry forward values of baseline variables.
-dt <- merge(x = dt[, .SD, .SDcols = which(names(dt) != "visit")], y = visits_dt[, .(ptid, visit, post_enrollment, early_term_censor)], by = "ptid", all.y = T)
+dt <- merge(x = dt[, .SD, .SDcols = which(names(dt) != "visit")], y = visits_dt[, .(ptid, visit, post_enrollment, early_term_censor, post_adh_intervention)], by = "ptid", all.y = T)
 
 dt[country == "Malawi",       country := "mal"]
 dt[country == "South Africa", country := "sa"]
@@ -115,8 +118,8 @@ dt[basehivsp == "HIV negative", m_hiv := "negative"]
 ids <- data.table(ptid = unique(dt$ptid), id = 1:length(unique(dt$ptid)))
 dt <- merge(x = dt, y = ids, by = "ptid", all.x = T)
 
-f_dt <- dt[, .(id, visit, post_enrollment, early_term_censor, site, country, arm, b_sti, b_noalc, f_age, m_arv, b_married, b_n_part, f_age_cat, b_bv, b_n_sti, b_condom_lweek, max_part, pp_vi_acts_avg, m_hiv, prop_condom)]
+f_dt <- dt[, .(id, visit, post_enrollment, early_term_censor, post_adh_intervention, site, country, arm, b_sti, b_noalc, f_age, m_arv, b_married, b_n_part, f_age_cat, b_bv, b_n_sti, b_condom_lweek, max_part, pp_vi_acts_avg, m_hiv, prop_condom)]
 
-setcolorder(x = f_dt, neworder = c("id", "visit", "post_enrollment", "early_term_censor", "country", "site", "f_age", "f_age_cat", "b_n_part", "max_part", "pp_vi_acts_avg", "b_married", "b_noalc", "m_hiv", "m_arv", "b_n_sti", "b_sti", "b_bv", "b_condom_lweek", "prop_condom", "arm"))
+setcolorder(x = f_dt, neworder = c("id", "visit", "post_enrollment", "early_term_censor", "post_adh_intervention", "country", "site", "f_age", "f_age_cat", "b_n_part", "max_part", "pp_vi_acts_avg", "b_married", "b_noalc", "m_hiv", "m_arv", "b_n_sti", "b_sti", "b_bv", "b_condom_lweek", "prop_condom", "arm"))
 
 save(f_dt, file = paste0(getwd(), "/f_dt.RData"))

@@ -354,12 +354,12 @@ plot_prev_ai <- function(output_list, n_sims, prev_ai) {
 
 # Function to plot simulated and expected prevalence of adherence
 plot_prev_adh <- function(output_list, n_sims, prop_adh) {
-  output_dt <- rbindlist(l = lapply(output_list, function(x) as.data.table(x$study_dt %>% group_by(site, f_age > 26) %>% summarise(prop_adh = mean(adh)))), idcol = "sim")
+  output_dt <- rbindlist(l = lapply(output_list, function(x) as.data.table(x$adh_dt %>% group_by(site, f_age_cat %in% c("18-21", "22-26"), post_adh_intervention) %>% summarise(prop_adh = mean(adh)))), idcol = "sim")
   
-  output_dt[, age_cat := ifelse(`f_age > 26`, "27-45", "18-26")]
+  output_dt[, age_cat := ifelse(`f_age_cat %in% c(\"18-21\", \"22-26\")`, "18-26", "27-45")]
   
   load(file = "~/Documents/code/aspire/data-public/adh_dt.RData")
-  obs_dt <- prop_adh_dt[, .SD, .SDcols = c("site", "age_cat", prop_adh)]
+  obs_dt <- prop_adh_dt[, .SD, .SDcols = c("site", "age_cat", "post_adh_intervention", prop_adh)]
   setnames(obs_dt, old = prop_adh, new = "prop_adh")
   
   # Factor site to print by country
@@ -382,36 +382,42 @@ plot_prev_adh <- function(output_list, n_sims, prop_adh) {
           plot.title = element_text(hjust = 0.5),
           plot.subtitle = element_text(hjust = 0.5),
           legend.key = element_blank(),
-          axis.text.x = element_text(angle = 45, hjust = 1)) +
-    guides(colour = guide_legend(override.aes = list(alpha = 1)))
+          axis.text.x = element_text(angle = 45, hjust = 1),
+          strip.background = element_blank()) +
+    guides(colour = guide_legend(override.aes = list(alpha = 1))) +
+    facet_grid(. ~ post_adh_intervention, labeller = as_labeller(c(`0` = "Pre-adherence interventions", `1` = "Post-adherence interventions"))) +
+    coord_cartesian(ylim = c(0, 1))
   
   return(ret_plot)
 }
 
 # Function to plot exposure rate ratio over time
 plot_exp_rr <- function(output_list, n_sims) {
-  output_dt <- rbindlist(l = lapply(output_list, function(x) x$exposure_dt), idcol = "sim")
+  output_dt_exp  <- rbindlist(l = lapply(output_list, function(x) x$exposure_dt), idcol = "sim")
+  output_dt_risk <- rbindlist(l = lapply(output_list, function(x) x$cumulative_risk_dt), idcol = "sim")
+  
+  output_dt <- merge(x = output_dt_exp, y = output_dt_risk, by = c("sim", "visit", "arm"), all = T)
   
   min_time_val <- min(output_dt[, max(visit), by = sim]$V1)
   
   # Convert dataset from long to wide
-  output_dt_wide <- dcast(data = output_dt, formula = sim + visit ~ arm, value.var = c("exposures", "pre_ring_risk"))
+  output_dt_wide <- dcast(data = output_dt, formula = sim + visit ~ arm, value.var = c("exposures", "mean_cum_risk"))
   
   # Create new variable for exposure rate ratio
   output_dt_wide[, `:=`(exp_rr      = exposures_1/exposures_0,
-                        cum_risk_rr = pre_ring_risk_1/pre_ring_risk_0)]
+                        cum_risk_rr = mean_cum_risk_1/mean_cum_risk_0)]
   
   # Calculate mean exposure rate ratio at each time step across simulations. Include the mean only for those simulations with the maximum follow-up time observed across all sims.
-  mean_dt <- output_dt_wide[visit <= min_time_val, .(exp_rr = mean(exp_rr), cum_risk_rr = mean(cum_risk_rr)), by = visit]
+  mean_dt <- output_dt_wide[visit <= min_time_val, .(exp_rr = mean(exp_rr, na.rm = T), cum_risk_rr = mean(cum_risk_rr, na.rm = T)), by = visit]
   
-  min_y_val <- min(c(output_dt_wide[, min(exp_rr, cum_risk_rr)], 1))
-  max_y_val <- output_dt_wide[, max(exp_rr, cum_risk_rr)]
+  # min_y_val <- min(c(output_dt_wide[, min(exp_rr, cum_risk_rr, na.rm = T)], 1))
+  # max_y_val <- min(7, output_dt_wide[!is.infinite(exp_rr), max(exp_rr, cum_risk_rr, na.rm = T)])
   
-  panel_1 <- ggplot(data = output_dt_wide) +
+  panel_1 <- ggplot(data = output_dt_wide[!is.na(exp_rr)]) +
     geom_line(aes(x = visit, y = exp_rr, group = sim), col = "blue", alpha = 0.05) +
     geom_point(data = mean_dt, aes(x = visit, y = exp_rr), col = "blue") + 
     labs(x = "Time (months)", y = "Exposure rate ratio") +
-    coord_cartesian(ylim = c(min_y_val, max_y_val)) +
+    coord_cartesian(ylim = c(0.5, 3)) +
     theme(text = element_text(family = "Times"),
           panel.background = element_blank(),
           panel.border = element_rect(color = "black", fill = NA),
@@ -425,7 +431,7 @@ plot_exp_rr <- function(output_list, n_sims) {
     geom_line(aes(x = visit, y = cum_risk_rr, group = sim), col = "blue", alpha = 0.05) +
     geom_point(data = mean_dt, aes(x = visit, y = cum_risk_rr), col = "blue") + 
     labs(x = "Time (months)", y = "Cumulative risk rate ratio") +
-    coord_cartesian(ylim = c(min_y_val, max_y_val)) +
+    coord_cartesian(ylim = c(0.5, 3)) +
     theme(text = element_text(family = "Times"),
           panel.background = element_blank(),
           panel.border = element_rect(color = "black", fill = NA),
@@ -435,7 +441,7 @@ plot_exp_rr <- function(output_list, n_sims) {
           plot.subtitle = element_text(hjust = 0.5),
           strip.background = element_blank())
   
-  plot_together <- ggarrange(panel_1,panel_2, ncol = 2, nrow = 1)
+  plot_together <- ggarrange(panel_1, panel_2, ncol = 2, nrow = 1)
   
   return(annotate_figure(p = plot_together, top = text_grob(paste0("Exposure/risk rate ratio over time (DPV/placebo) across ", n_simulations, " simulations"), family = "Times", size = 14, face = "bold")))
   
@@ -760,7 +766,7 @@ plot_n_active_partners <- function(output_list, n_sims) {
   min_time_val <- min(output_dt[, max(month), by = id]$V1)
   
   ret_plot <- ggplot(data = output_dt) +
-    geom_line(aes(x = month, y = V1, group = id), alpha = 0.025, color = "blue") +
+    geom_line(aes(x = month, y = V1, group = id), alpha = 0.5, color = "blue") +
     geom_smooth(data = output_dt[month > 1 & month <= min_time_val], aes(x = month, y = V1), method = "loess", formula = y ~ x, se = F) +
     geom_smooth(data = output_dt[month > 1], aes(x = month, y = V1), method = "loess", formula = y ~ x, se = F, linetype = "dashed") +
     geom_hline(yintercept = 3173, col = "red") +
@@ -990,7 +996,7 @@ plot_bar_efficacy_dilution <- function(sims_directory_best_eff, sims_directory_r
   output_rai_nonadh <- copy(results_list)
   
   # Estimate median per-act RR from best-possible simulations (i.e., perfect adherence, no RAI)
-  med_per_act_rr <- median(sapply(output_best_possible_eff, function(x) x$ri_dt[arm == 1, mean(n_inf_total)/mean(n_acts_total)]/x$ri_dt[arm == 0, mean(n_inf_total)/mean(n_acts_total)]))
+  med_per_act_rr <- median(sapply(output_best_possible_eff, function(x) x$ri_dt[arm == 1, mean(n_inf)/mean(n_acts)]/x$ri_dt[arm == 0, mean(n_inf)/mean(n_acts)]))
   
   # Estimate median HR from best-possible simulations (i.e., perfect adherence, no RAI)
   med_hr_best_possible <- median(sapply(output_best_possible_eff, function(x) x$hr))
@@ -1056,4 +1062,117 @@ plot_bar_efficacy_dilution <- function(sims_directory_best_eff, sims_directory_r
   
   return(annotate_figure(p = plot_together, top = text_grob(paste0("Attribution of each source of efficacy dilution across ", n_sims, " simulations"), family = "Times", size = 14, face = "bold")))
 }
+
+# Function to plot incidence by age
+plot_inc_by_age <- function(output_list) {
+  # Calculate incidence by age group in the placebo arm
+  inc_dt_list <- lapply(output_list, function(x) as.data.table(x$study_dt[arm == 0] %>% group_by(f_age_cat) %>% summarise(inc_rate = (sum(hiv)/sum(as.numeric(visit * 30)/365)) * 100)))
+  
+  lapply(inc_dt_list, function(x) setnames(x, old = "f_age_cat", new = "age_cat"))
+  
+  # Combine all items in inc_list to one data.table
+  inc_sim_dt <- rbindlist(l = inc_dt_list)
+  
+  # Specify whether data is from a simulation or observed
+  inc_sim_dt[, data_source := "sim"]
+  
+  load("~/Documents/code/aspire/data-public/inf_obs.RData")
+  
+  inc_obs <- inf_obs[1:3, .(age_cat, hiv_inf, n, py, inc_rate)]
+  inc_obs[, data_source := "obs"]
+  
+  # Combine all incidence data
+  inc_dt <- rbindlist(l = list(inc_sim_dt, inc_obs[, .(age_cat, inc_rate, data_source)]))
+  
+  # Plot simulated and observed age-specific incidence
+  ret_plot <- ggplot(data = inc_dt) +
+    geom_jitter(data = inc_dt[data_source == "sim"], aes(x = age_cat, y = inc_rate, col = data_source), width = 0.1, alpha = 0.5) +
+    geom_point(data = inc_dt[data_source == "obs"], aes(x = age_cat, y = inc_rate, col = data_source), size = 2.25) +
+    geom_errorbar(data = inf_obs[1:3], aes(x = age_cat, ymin = inc_rate - 1.96 * se, ymax = inc_rate + 1.96 * se), width = 0.1, size = 0.75) +
+    scale_color_manual(labels = c("Observed incidence", "Simulated incidence"), values = c("black", "#AF3AF5")) +
+    coord_cartesian(ylim = c(0, 9)) +
+    labs(x = "Age group", y = "Incidence rate (per 100 woman-years)", col = "") +
+    theme(text = element_text(family = "Times"),
+          panel.border = element_rect(color = "black", fill = NA),
+          panel.background = element_blank(),
+          panel.grid = element_line(size = 0.05, colour = "black"),
+          legend.key = element_blank())
+  
+  return(ret_plot)
+}
+
+# Function to plot incidence in months 15-23 and 24-31
+plot_inc_time_period <- function(output_list) {
+  output_dt <- rbindlist(l = lapply(output_list, function(x) x$long_dt[visit %in% 15:31 & arm == 0]), idcol = "sim")
+  
+  # Create time period variable
+  output_dt[, time_period := ifelse(visit %in% 15:23, "15-23 months", "24-31 months")]
+  
+  # Keep last row by id, sim, and time period
+  output_dt <- output_dt[, .SD[.N], by = c("id", "sim", "time_period")]
+  
+  inc_sim_dt_1523 <- as.data.table(output_dt[time_period == "15-23 months"] %>% group_by(sim) %>% summarise(inc_rate = sum(hiv)/sum(((visit - 14) * 30)/365) * 100))
+  inc_sim_dt_2431 <- as.data.table(output_dt[time_period == "24-31 months"] %>% group_by(sim) %>% summarise(inc_rate = sum(hiv)/sum(((visit - 23) * 30)/365) * 100))
+  
+  load("~/Documents/code/aspire/data-public/inf_obs.RData")
+  
+  inc_dt <- rbindlist(l = list(inf_obs[4:5, .(time_period = c("15-23 months", "24-31 months"), inc_rate, data_source = "obs")], inc_sim_dt_1523[, .(time_period = "15-23 months", inc_rate, data_source = "sim")], inc_sim_dt_2431[, .(time_period = "24-31 months", inc_rate, data_source = "sim")]))
+  
+  inf_obs[, time_period := c(NA, NA, NA, "15-23 months", "24-31 months")]
+  
+  # Plot simulated and observed age-specific incidence
+  ret_plot <- ggplot(data = inc_dt) +
+    geom_jitter(data = inc_dt[data_source == "sim"], aes(x = time_period, y = inc_rate, col = data_source), width = 0.1, alpha = 0.5) +
+    geom_point(data = inc_dt[data_source == "obs"], aes(x = time_period, y = inc_rate, col = data_source), size = 2.25) +
+    geom_errorbar(data = inf_obs[4:5], aes(x = time_period, ymin = inc_rate - 1.96 * se, ymax = inc_rate + 1.96 * se), width = 0.1, size = 0.75) +
+    scale_color_manual(labels = c("Observed incidence", "Simulated incidence"), values = c("black", "#AF3AF5")) +
+    coord_cartesian(ylim = c(0, 9)) +
+    labs(x = "Time period", y = "Incidence rate (per 100 woman-years)", col = "") +
+    theme(text = element_text(family = "Times"),
+          panel.border = element_rect(color = "black", fill = NA),
+          panel.background = element_blank(),
+          panel.grid = element_line(size = 0.05, colour = "black"),
+          legend.key = element_blank())
+  
+  return(ret_plot)
+}
+
+# Function to plot incidence over time
+plot_inc_time <- function(output_list) {
+  output_dt <- rbindlist(l = lapply(output_list, function(x) x$long_dt[arm == 0, .(id, visit, hiv)]), idcol = "sim")
+  
+  min_visit_val <- min(output_dt[, max(visit), by = "sim"]$V1)
+  
+  inc_dt <- data.table(visit = 1:min_visit_val)
+  
+  for(i in 1:min_visit_val) {
+    temp_dt <- output_dt[visit %in% 1:i]
+    
+    # Keep only last observation for each participant
+    temp_dt <- temp_dt[, .SD[.N], by = c("sim", "id")]
+    
+    inc_dt[visit == i, inc_rate := temp_dt[, sum(hiv)/(sum(visit * 30)/365) * 100]]
+  }
+  
+  max_y_val <- inc_dt[, max(inc_rate)]
+  
+  # Load observed data
+  load("~/Documents/code/aspire/data-public/inc_obs_time.RData")
+  
+  ggplot(data = inc_dt) +
+    geom_line(aes(x = visit, y = inc_rate), col = "#AF3AF5") +
+    geom_point(data = inc_obs_time_dt, aes(x = visit, y = est)) +
+    geom_errorbar(data = inc_obs_time_dt, aes(x = visit, ymin = lower, ymax = upper), width = 0.4) +
+    coord_cartesian(ylim = c(0, max_y_val)) +
+    labs(x = "Visit", y = "Incidence (per 100 py)") +
+    theme(text = element_text(family = "Times"),
+          panel.border = element_rect(color = "black", fill = NA),
+          panel.background = element_blank(),
+          panel.grid = element_line(size = 0.05, colour = "black"),
+          legend.key = element_blank())
+}
+
+
+
+
 

@@ -7,7 +7,7 @@ library(data.table)
 library(dplyr)
 
 # Load data
-acasi_dt <- as.data.table(read.csv(file = "/Volumes/GoogleDrive/My Drive/UW Epi Program/IS - EB/Analysis/ACASI.csv", na.strings = ""))
+acasi_dt <- as.data.table(read.csv(file = "/Volumes/GoogleDrive/My Drive/UW Epi Program/ASPIRE/Data/ACASI.csv", na.strings = ""))
 load("~/Documents/code/aspire/data-private/hiv.RData")
 hiv_dt <- as.data.table(hiv)
 
@@ -51,13 +51,14 @@ prop_ai_dt <- as.data.table(dt %>% group_by(site) %>% summarise(prop_ai_obs = me
 mean_ai_obs <- prop_ai_dt[, mean(prop_ai_obs)] # Value of 21% is slightly different than 19% estimated from dt[, mean(anal_any_m0_m3 == 1, na.rm = T)] due to variation in number of people by site. Weighted average should be equal. However, because the difference is so small, will use an unweighted average. In simulations, we output the simulated proportion of women engaging in AI, so we can center median values of interest at the corresponding median prevalence of AI on the x-y plane.
 
 # Increase or decrease adherence proportionally to observed adherence. For high levels of adherence (90% and 95%), this results in greater than 100% adherence.
-prop_ai_dt[, `:=`(`0`  = 0,
-                  `5`  = prop_ai_obs * (1 - (mean_ai_obs - 0.05)/mean_ai_obs),
-                  `10` = prop_ai_obs * (1 - (mean_ai_obs - 0.10)/mean_ai_obs),
-                  `15` = prop_ai_obs * (1 - (mean_ai_obs - 0.15)/mean_ai_obs),
-                  `20` = prop_ai_obs * (1 - (mean_ai_obs - 0.20)/mean_ai_obs),
-                  `25` = prop_ai_obs * (1 - (mean_ai_obs - 0.25)/mean_ai_obs),
-                  `30` = prop_ai_obs * (1 - (mean_ai_obs - 0.30)/mean_ai_obs))]
+prop_ai_dt[, `:=`(`0`   = 0,
+                  `5`   = prop_ai_obs * (1 - (mean_ai_obs - 0.05)/mean_ai_obs),
+                  `10`  = prop_ai_obs * (1 - (mean_ai_obs - 0.10)/mean_ai_obs),
+                  `15`  = prop_ai_obs * (1 - (mean_ai_obs - 0.15)/mean_ai_obs),
+                  `20`  = prop_ai_obs * (1 - (mean_ai_obs - 0.20)/mean_ai_obs),
+                  `25`  = prop_ai_obs * (1 - (mean_ai_obs - 0.25)/mean_ai_obs),
+                  `30`  = prop_ai_obs * (1 - (mean_ai_obs - 0.30)/mean_ai_obs),
+                  `100` = 1)]
 
 save(prop_ai_dt, file = "~/Documents/code/aspire/data-public/ai_dt.RData")
 

@@ -6,27 +6,35 @@ setwd("~/Documents/code/aspire")
 
 load(paste0(getwd(), "/abc/priors.RDATA"))
 
+options(scipen = 999)
+
 N <- 100000
 
 # Sample particles from priors
-particles <- data.table(lambda  = rbeta(n      = N,
-                                        shape1 = priors[param == "lambda", alpha],
-                                        shape2 = priors[param == "lambda", beta]), 
-                        cond_rr = runif(n   = N,
-                                        min = priors[param == "cond_rr", min],
-                                        max = priors[param == "cond_rr", max]),
-                        c       = runif(n   = N,
-                                        min = priors[param == "c", min],
-                                        max = priors[param == "c", max]),
-                        s       = runif(n   = N,
-                                        min = priors[param == "s", min],
-                                        max = priors[param == "s", max]),
-                        rr_ai   = runif(n   = N,
-                                        min = priors[param == "rr_ai", min],
-                                        max = priors[param == "rr_ai", max]),
-                        i       = 1:N)
+particles <- data.table(lambda                  = rbeta(n      = N,
+                                                        shape1 = priors[param == "lambda", alpha],
+                                                        shape2 = priors[param == "lambda", beta]), 
+                        cond_rr                 = runif(n   = N,
+                                                        min = priors[param == "cond_rr", min],
+                                                        max = priors[param == "cond_rr", max]),
+                        c                       = runif(n   = N,
+                                                        min = priors[param == "c", min],
+                                                        max = priors[param == "c", max]),
+                        s                       = runif(n   = N,
+                                                        min = priors[param == "s", min],
+                                                        max = priors[param == "s", max]),
+                        rr_ai                   = runif(n   = N,
+                                                        min = priors[param == "rr_ai", min],
+                                                        max = priors[param == "rr_ai", max]),
+                        p_rate_rr               = runif(n   = N,
+                                                        min = priors[param == "p_rate_rr", min],
+                                                        max = priors[param == "p_rate_rr", max]),
+                        base_male_hiv_incidence = runif(n   = N,
+                                                        min = priors[param == "base_male_hiv_incidence", min],
+                                                        max = priors[param == "base_male_hiv_incidence", max]),
+                        i                       = 1:N)
 
-## Convert data table to list
+# Convert data table to list
 particles <- lapply(1:nrow(particles), function(x) { particles[x, ] })
 
 if(!dir.exists(paths = paste0(getwd(), "/abc/hyak/t0"))) {
@@ -37,7 +45,7 @@ save(particles, file = paste0(getwd(), "/abc/hyak/t0/particles.RDATA"))
 
 # Create vectors for start and end particles for each script
 n_new_particles <- N
-batch_size <- floor(N/13)
+batch_size <- floor(N/14)
 
 starts <- seq(1, n_new_particles - batch_size - 1, batch_size)
 ends   <- seq(batch_size, n_new_particles, batch_size)
@@ -67,7 +75,7 @@ for(i in 1:length(starts)) {
 # Create bash script
 top_line <- "#!/bin/bash"
 
-n_nodes <- 13
+n_nodes <- 14
 
 jobs_loop <- paste0("for i in {1..", n_nodes, "}; do\n\texport SIMNO=$i\n\tsbatch runsim_abc_aspire.sh\ndone")
 

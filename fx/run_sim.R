@@ -9,7 +9,7 @@
 #
 #######################################################################################
 
-run_sim <- function(lambda, cond_rr, c, s, rr_ai, prev_ai, prop_ai = 0.078, prop_adh, rr_ring, re_randomize = F, i = NULL, calibrate = F) {
+run_sim <- function(lambda, cond_rr, c, s, rr_ai, p_rate_rr, base_male_hiv_incidence, prev_ai, prop_ai = 0.078, prop_adh, rr_ring, re_randomize = F, i = NULL, calibrate = F, reduce_output = F) {
   
   load(file = paste0(wd, "/data-private/f_dt.RData"))
   
@@ -50,7 +50,8 @@ run_sim <- function(lambda, cond_rr, c, s, rr_ai, prev_ai, prop_ai = 0.078, prop
                      active         = as.integer(1),
                      max_part       = f_dt[visit == 0]$max_part[id],
                      b_condom_lweek = f_dt[visit == 0]$b_condom_lweek[id],
-                     m_hiv_rr       = f_dt[visit == 0]$m_hiv_rr[id])
+                     m_hiv_rr       = f_dt[visit == 0]$m_hiv_rr[id],
+                     t_inf          = -3) # Assign time of infection as -3 to all initial partners (assumes no partners at baseline have acute infection)
   
   if(nrow(m_dt[max_part == 1]) != nrow(f_dt[visit == 0 & b_married == 1])) { browser() }
   
@@ -76,7 +77,7 @@ run_sim <- function(lambda, cond_rr, c, s, rr_ai, prev_ai, prop_ai = 0.078, prop
   f_dt[visit == 0, hiv := as.integer(0)]
   
   # Assign adherence to both placebo and active arms. Assign to placebo in order to create a comparable group for analyses comparing women across arms by adherence status. f_dt has key of id and visit before and after assign_adh function, so below code will merge correctly by id and visit.
-  f_dt[, adh := assign_adh(dt = f_dt[, .(id, visit, site, f_age)], prop_adh = prop_adh)]
+  f_dt[, adh := assign_adh(dt = f_dt[, .(id, visit, site, f_age, post_adh_intervention)], prop_adh = prop_adh)]
   
   # Create table to track cumulative risk in the placebo and active arms. The number of time steps will be variable, so make the table very large, and then reduce size below. 
   risk_inf_dt <- as.data.table(expand.grid(time = 1:150, arm = as.double(0:1), n_inf = NA_real_, n_inf_pre_ring = NA_real_, n_acts = NA_real_, n_inf_vi_excl = NA_real_, n_acts_vi_excl = NA_real_, n_inf_vi_excl_adh = NA_real_, n_acts_vi_excl_adh = NA_real_, n_inf_any_ai = NA_real_, n_acts_any_ai = NA_real_, n_inf_any_ai_adh = NA_real_, n_acts_any_ai_adh = NA_real_))
@@ -96,8 +97,8 @@ run_sim <- function(lambda, cond_rr, c, s, rr_ai, prev_ai, prop_ai = 0.078, prop
   # Create vector to track the number of active partnerships at each timestep
   n_active_partnerships <- numeric(150)
   
-  # Run simulation until 168 infections have occurred
-  while(n_hiv_inf < 168) {
+  # Run simulation until 168 infections have occurred. Simulations should run for a minimum of 31 timesteps.
+  while(n_hiv_inf < 168 | t <= 31) {
   
     # Calculate the number of HIV-positive partners each woman has
     setkey(m_dt, id) # Remove this when code to track the number of HIV-positive partners each woman has is no longer in use
@@ -106,7 +107,7 @@ run_sim <- function(lambda, cond_rr, c, s, rr_ai, prev_ai, prop_ai = 0.078, prop
     # HIV transmission
     f_dt[visit == t, c("hiv", "n_acts_hiv_pos", "cum_risk_pre_ring", "inf_act_type") := hiv_transmission(
       f_dt    = f_dt[visit == t, .(id, adh, f_age, pp_vi_acts, pp_ai_acts, b_n_sti, b_bv, arm, prob_condom, any_ai = pp_ai_acts_avg > 0, post_enrollment, early_term_censor)],
-      m_dt    = m_dt[active == 1 & hiv == 1, .(id, vl)],
+      m_dt    = m_dt[active == 1 & hiv == 1, .(id, vl, t_inf)],
       t       = t,
       l       = lambda,
       rr_ai   = rr_ai,
@@ -127,7 +128,10 @@ run_sim <- function(lambda, cond_rr, c, s, rr_ai, prev_ai, prop_ai = 0.078, prop
     n_active_partnerships[t] <- m_dt[, sum(active)]
     
     # Partner change
-    m_dt <- partner_change(m_dt = m_dt, f_dt = f_dt[visit == t, .(id, arm, country, f_age, max_part, b_condom_lweek, m_hiv_rr)], cond_rr = cond_rr)
+    m_dt <- partner_change(m_dt = m_dt, f_dt = f_dt[visit == t, .(id, arm, country, f_age, max_part, b_condom_lweek, m_hiv_rr)], cond_rr = cond_rr, p_rate_rr = p_rate_rr)
+    
+    # Incident infections among men
+    m_dt <- male_hiv_incidence(m_dt = m_dt, base_male_hiv_incidence = base_male_hiv_incidence, cond_rr = cond_rr, t_curr = t)
     
     # Count and update number of HIV infections
     n_hiv_inf <- sum(f_dt[, any(any_hiv == 1, na.rm = T), by = id]$V1)
@@ -135,11 +139,14 @@ run_sim <- function(lambda, cond_rr, c, s, rr_ai, prev_ai, prop_ai = 0.078, prop
     # Increment timestep
     t <- t + 1
     
-    if(t > 150) { browser() }
+    if(t > 50) { break } # If time to achieve 168 infections is greater than 50 months, end simulation.
   }
   
   # Calculate the number of HIV-positive partners by arm at each timestep, prior to censoring
   n_part_hiv_dt <- f_dt[!is.na(n_part_hiv), .(n_part_hiv = sum(n_part_hiv), pre_censor = 1), by = c("visit", "arm")]
+  
+  # Create adherence data table to estimate the proportion of women adherent before and after adherence interventions
+  adh_dt <- unique(f_dt[, .(id, post_adh_intervention, site, f_age_cat, adh)])
   
   # Clean up: Remove rows prior to a participant enrolling and after early termination.
   f_dt <- f_dt[post_enrollment == 1 & early_term_censor == 0]
@@ -147,7 +154,7 @@ run_sim <- function(lambda, cond_rr, c, s, rr_ai, prev_ai, prop_ai = 0.078, prop
   # Clean up: Among seroconverters, remove rows subsequent to visit at which HIV is first detected (hiv_transmission module takes only the values for the current time step, and so does not take account of previous HIV status values).
   f_dt[visit == 0, any_hiv := 0]
   ids_hiv <- f_dt[any_hiv == 1, unique(id)]
-    f_dt <- f_dt[, .SD[cumsum(any_hiv) <= 1], by = id]
+  f_dt <- f_dt[, .SD[cumsum(any_hiv) <= 1], by = id]
   
   if(any(f_dt[, cumsum(hiv), by = id]$V1 > 1)) { stop("HIV censoring not done correctly.") }
   if(!all(f_dt[hiv == 1, unique(id)] == ids_hiv)) { stop("HIV censoring not done correctly.") }
@@ -159,8 +166,11 @@ run_sim <- function(lambda, cond_rr, c, s, rr_ai, prev_ai, prop_ai = 0.078, prop
   balanced_dt           <- balanced_dt[time <= censor_visit]
   n_active_partnerships <- n_active_partnerships[1:censor_visit]
   
-  # Reset visit number to begin from 0 for each participant.
-  f_dt[, visit := 0:(.N - 1), by = id]
+  # Reset visit number to begin from 1 for each participant.
+  f_dt[, visit := 1:.N, by = id]
+  
+  # Keep longitudinal dataset to estimate HR over time
+  long_dt <- f_dt[, .(id, visit, hiv, f_age_cat, arm)]
   
   exp_dt <- f_dt[, .(exposures = sum(n_acts_hiv_pos, na.rm = T)), by = c("visit", "arm")]
   
@@ -198,12 +208,23 @@ run_sim <- function(lambda, cond_rr, c, s, rr_ai, prev_ai, prop_ai = 0.078, prop
   
   if(calibrate) {
     # Sum infections, sample size, and person-time by age group for the placebo arm (ABC will fit parameters only to placebo arm).
-    inf_sim <- as.data.table(f_dt[arm == 0] %>% group_by(f_age_cat) %>% summarise(hiv_inf = sum(hiv), n = length(unique(id)), py = sum((visit * 30)/365)))
+    inf_sim_age <- as.data.table(f_dt[arm == 0] %>% group_by(f_age_cat) %>% summarise(hiv_inf = sum(hiv), n = length(unique(id)), py = sum((visit * 30)/365)))
+    
+    # Calculate incidence in placebo arm for months 15-23 and 24-31
+    inf_sim_time <- data.table(f_age_cat = c("18-45", "18-45"),
+                               hiv_inf   = c(long_dt[arm == 0 & visit %in% 15:23, sum(hiv)],
+                                             long_dt[arm == 0 & visit %in% 24:31, sum(hiv)]),
+                               n         = c(long_dt[arm == 0 & visit %in% 15:23, length(unique(id))],
+                                             long_dt[arm == 0 & visit %in% 24:31, length(unique(id))]),
+                               py        = c(sum(((long_dt[arm == 0 & visit %in% 15:23, max(visit), by = id]$V1 - 14) * 30)/365),
+                                             sum(((long_dt[arm == 0 & visit %in% 24:31, max(visit), by = id]$V1 - 23) * 30)/365)))
+    
+    inf_sim <- rbindlist(l = list(inf_sim_age, inf_sim_time))
     
     # Calculate the distance criterion as the probability of the observed data under the poisson distribution paramaterized with lambda from simulated data (i.e., L(parameters | data)). Multiplying likelihood of all age categories assumes independent poisson distributions.
     rho <- prod(sapply(1:nrow(inf_sim), function(x) { dpois(x = inf_obs[x, hiv_inf], lambda = inf_sim[x, hiv_inf/py] * inf_obs[x, py]) }))
     
-    particle <- list(lambda = lambda, cond_rr = cond_rr, c = c, s = s, rr_ai = rr_ai, rho = rho, i = i)
+    particle <- list(lambda = lambda, cond_rr = cond_rr, c = c, s = s, rr_ai = rr_ai, p_rate_rr = p_rate_rr, base_male_hiv_incidence = base_male_hiv_incidence, rho = rho, i = i)
     
     save(particle, file = paste0(getwd(), "/particle_", particle[["i"]], ".RData"))
     save(inf_sim,  file = paste0(getwd(), "/inf_sim_", i, ".RData"))
@@ -211,14 +232,32 @@ run_sim <- function(lambda, cond_rr, c, s, rr_ai, prev_ai, prop_ai = 0.078, prop
     rm(list = c("f_dt", "m_dt", "acts_dt", "balanced_dt", "cum_risk_dt", "exp_dt", "n_part_hiv_dt", "risk_inf_dt"))
     rm(acts_dt, envir = globalenv())
   } else {
+    # Sum infections, sample size, and person-time by age group for the placebo arm (ABC will fit parameters only to placebo arm).
+    inf_sim_age <- as.data.table(f_dt[arm == 0] %>% group_by(f_age_cat) %>% summarise(hiv_inf = sum(hiv), n = length(unique(id)), py = sum((visit * 30)/365)))
+    
+    # Calculate incidence in placebo arm for months 15-23 and 24-31
+    inf_sim_time <- data.table(f_age_cat = c("Months 15-23", "Months 24-31"),
+                               hiv_inf   = c(long_dt[arm == 0 & visit %in% 15:23, sum(hiv)],
+                                             long_dt[arm == 0 & visit %in% 24:31, sum(hiv)]),
+                               n         = c(long_dt[arm == 0 & visit %in% 15:23, length(unique(id))],
+                                             long_dt[arm == 0 & visit %in% 24:31, length(unique(id))]),
+                               py        = c(sum(((long_dt[arm == 0 & visit %in% 15:23, max(visit), by = id]$V1 - 14) * 30)/365),
+                                             sum(((long_dt[arm == 0 & visit %in% 24:31, max(visit), by = id]$V1 - 23) * 30)/365)))
+    
+    inf_sim <- rbindlist(l = list(inf_sim_age, inf_sim_time))
+    
     # Calculate the hazard ratio in simulated data
     hr <- unname(summary(f_dt[, coxph(formula = Surv(time = (visit * 30)/365, event = hiv) ~ arm + strata(site))])$conf.int[1])
     hr_lb <- unname(summary(f_dt[, coxph(formula = Surv(time = (visit * 30)/365, event = hiv) ~ arm + strata(site))])$conf.int[3])
     hr_ub <- unname(summary(f_dt[, coxph(formula = Surv(time = (visit * 30)/365, event = hiv) ~ arm + strata(site))])$conf.int[4])
     
-    output <- list(hr = hr, hr_lb = hr_lb, hr_ub = hr_ub, prop_total_acts_ai = prop_total_acts_ai, prev_ai_sim = prev_ai_sim, prop_ai_sim = prop_ai_sim, prop_eff_dilution_non_adh = prop_eff_dilution_non_adh, prop_eff_dilution_ai = prop_eff_dilution_ai, ri_dt = risk_inf_dt, study_dt = f_dt, n_active_part = n_active_partnerships, male_dt = m_dt, b_dt = balanced_dt, n_part_hiv_pos_dt = n_part_hiv_dt, exposure_dt = exp_dt, cumulative_risk_dt = cum_risk_dt, risk_per_act_dt = acts_dt)
+    if(reduce_output) {
+      output <- list(hr = hr, ri_dt = risk_inf_dt)
+    } else {
+      output <- list(hr = hr, hr_lb = hr_lb, hr_ub = hr_ub, prop_total_acts_ai = prop_total_acts_ai, prev_ai_sim = prev_ai_sim, prop_ai_sim = prop_ai_sim, prop_eff_dilution_non_adh = prop_eff_dilution_non_adh, prop_eff_dilution_ai = prop_eff_dilution_ai, ri_dt = risk_inf_dt, study_dt = f_dt, n_active_part = n_active_partnerships, male_dt = m_dt, b_dt = balanced_dt, n_part_hiv_pos_dt = n_part_hiv_dt, exposure_dt = exp_dt, cumulative_risk_dt = cum_risk_dt, risk_per_act_dt = acts_dt, adh_dt = adh_dt, long_dt = long_dt, inc_sim = inf_sim)
+    }
     
-    rm(list = c("f_dt", "m_dt", "acts_dt", "balanced_dt", "cum_risk_dt", "exp_dt", "n_part_hiv_dt", "risk_inf_dt"))
+    rm(list = c("f_dt", "m_dt", "acts_dt", "balanced_dt", "cum_risk_dt", "exp_dt", "n_part_hiv_dt", "risk_inf_dt", "adh_dt", "long_dt"))
     rm(acts_dt, envir = globalenv())
     
     return(output)

@@ -22,7 +22,7 @@ abc_samples_process <- function(t, N, alpha, p_acc_min, n_nodes) {
   
   ## Create empty data table in which to store particles
   n_particles <- length(list.files(path = paste0(getwd(), "/t", t_curr, "/particles")))
-  particles <- data.table(sapply(c("lambda", "cond_rr", "c", "s", "rr_ai", "rho", "i"), function(x) { x = rep(NA_real_, n_particles) }))
+  particles <- data.table(sapply(c("lambda", "cond_rr", "c", "s", "rr_ai", "p_rate_rr", "base_male_hiv_incidence", "rho", "i"), function(x) { x = rep(NA_real_, n_particles) }))
   
   ## Load all particles into empty data table
   for(i in 1:n_particles) {
@@ -39,9 +39,9 @@ abc_samples_process <- function(t, N, alpha, p_acc_min, n_nodes) {
     load(paste0(getwd(), "/t", t_prev, "/particles_acc_", t_prev, ".RDATA"))
     prev_particles <- eval(parse(text = paste0("particles_acc_", t_prev)))
     
-    particles[, w := calc_weights(prev_iter_particles = prev_particles[, .(lambda, cond_rr, c, s, rr_ai)], 
+    particles[, w := calc_weights(prev_iter_particles = prev_particles[, .(lambda, cond_rr, c, s, rr_ai, p_rate_rr, base_male_hiv_incidence)], 
                                   weights             = prev_particles[, w], 
-                                  curr_iter_particles = particles[, .(lambda, cond_rr, c, s, rr_ai)])]
+                                  curr_iter_particles = particles[, .(lambda, cond_rr, c, s, rr_ai, p_rate_rr, base_male_hiv_incidence)])]
   }
   
   ## Specify iteration
@@ -79,11 +79,11 @@ abc_samples_process <- function(t, N, alpha, p_acc_min, n_nodes) {
     
     new_particles <- select_particles(dt = prev_particles, n_new_particles = N - N * alpha)
     
-    new_particles <- perturb_particles(dt = new_particles, cov_mat = (0.5 * cov.wt(x = as.matrix(prev_particles[, .(lambda, cond_rr, c, s, rr_ai)]), wt = prev_particles[, w])$cov))
+    new_particles <- perturb_particles(dt = new_particles, cov_mat = (0.5 * cov.wt(x = as.matrix(prev_particles[, .(lambda, cond_rr, c, s, rr_ai, p_rate_rr, base_male_hiv_incidence)]), wt = prev_particles[, w])$cov))
     
-    new_particles <- new_particles[, .(lambda_new, cond_rr_new, c_new, s_new, rr_ai_new)]
+    new_particles <- new_particles[, .(lambda_new, cond_rr_new, c_new, s_new, rr_ai_new, p_rate_rr_new, base_male_hiv_incidence_new)]
     new_particles[, i := 1:.N]
-    setnames(new_particles, old = c("lambda_new", "cond_rr_new", "c_new", "s_new", "rr_ai_new"), new = c("lambda", "cond_rr", "c", "s", "rr_ai"))
+    setnames(new_particles, old = c("lambda_new", "cond_rr_new", "c_new", "s_new", "rr_ai_new", "p_rate_rr_new", "base_male_hiv_incidence_new"), new = c("lambda", "cond_rr", "c", "s", "rr_ai", "p_rate_rr", "base_male_hiv_incidence"))
     
     ## Convert data table of new particles to simulate to list
     particles <- lapply(1:nrow(new_particles), function(x) { new_particles[x, ] })
