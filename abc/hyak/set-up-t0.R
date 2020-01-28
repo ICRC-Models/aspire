@@ -45,7 +45,7 @@ save(particles, file = paste0(getwd(), "/abc/hyak/t0/particles.RDATA"))
 
 # Create vectors for start and end particles for each script
 n_new_particles <- N
-batch_size <- floor(N/14)
+batch_size <- floor(N/28)
 
 starts <- seq(1, n_new_particles - batch_size - 1, batch_size)
 ends   <- seq(batch_size, n_new_particles, batch_size)
@@ -75,7 +75,7 @@ for(i in 1:length(starts)) {
 # Create bash script
 top_line <- "#!/bin/bash"
 
-n_nodes <- 14
+n_nodes <- 28
 
 jobs_loop <- paste0("for i in {1..", n_nodes, "}; do\n\texport SIMNO=$i\n\tsbatch runsim_abc_aspire.sh\ndone")
 
