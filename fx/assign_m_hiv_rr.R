@@ -11,7 +11,7 @@
 
 assign_m_hiv_rr <- function(age, c, s) {
   if(age <= 26) {
-    rr <- 0 # c/(1 + exp(-2 * (age - 27)))
+    rr <- 0
   } else {
     rr <- c/(1 + exp(-s * (age - 27)))
   }

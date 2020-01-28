@@ -10,38 +10,134 @@
 #
 #######################################################################################
 
-assign_adh <- function(dt, prop_adh) {
+assign_adh <- function(dt, target_adh) {
   
-  # Create age category to merge on
-  dt[, age_cat := ifelse(f_age <= 26, "18-26", "27-45")]
-  
-  # Merge simulated data with proportion adherent by site and age group
-  dt <- merge(x = dt, y = prop_adh_dt[, .SD, .SDcols = c("site", "age_cat", "post_adh_intervention", prop_adh)], by = c("site", "age_cat", "post_adh_intervention"))
-  setnames(dt, old = prop_adh, new = "prop_adh")
-  
-  setkey(dt, id, visit)
-  
-  # Assign adherence in the pre-adherence intervention time period with a binomial draw
-  dt[post_adh_intervention == 0, adh := rbinom(n = length(unique(id)), size = 1, prob = prop_adh), by = id]
-  
-  # By site and age group, calculate the absolute percentage difference in adherence from pre-adherence intervention time period to post-adherence intervention time period
-  adh_diff_dt <- dcast(data = prop_adh_dt[, .SD, .SDcols = c("site", "age_cat", "post_adh_intervention", prop_adh)], formula = site + age_cat ~ post_adh_intervention, value.var = prop_adh)
-  adh_diff_dt[, increase_adh := `1` - `0`]
-  
-  adh_diff_dt <- merge(x = adh_diff_dt, y = dt[, .(n_total = length(unique(id)), n_adh = sum(visit == 0 & adh == 1)), by = c("site", "age_cat")], by = c("site", "age_cat"))
-  adh_diff_dt[, n_to_sample := ifelse(round(n_total * increase_adh) + n_adh > n_total, n_total - n_adh, round(n_total * increase_adh))]
-  
-  ids_newly_adh <- unname(unlist(sapply(dt[, unique(site)], function(x) {
-    sapply(dt[, unique(age_cat)], function(y) {
-      if(adh_diff_dt[site == x & age_cat == y, n_to_sample > 0]) { sample(x = dt[site == x & age_cat == y & adh == 0, unique(id)], size = adh_diff_dt[site == x & age_cat == y, n_to_sample]) }
-    })
-  })))
-  
-  # For women identified to be newly adherent, give their post-adherence intervention time period a value of 1 for adherent
-  dt[id %in% ids_newly_adh & post_adh_intervention == 1, adh := 1]
-  
-  # For all other women, carry forward their value assigned for the pre-adherence intervention time period
-  dt[, adh := na.locf(adh), by = id]
+  # If target adherence coverage is 100%, assign all visits as adherent. Otherwise, use predictive model to assign adherence.
+  if(target_adh == 1) {
+    dt[, adh := 1]
+  } else {
+    
+    # Calculate adherence for visit 0 for all women
+    dt[visit == 0, adh := rbinom(n = nrow(dt[visit == 0]), size = 1, prob = prob_adh)]
+    
+    # For women with assigned adherence of 1 at visit 0, carry forward value of 1 for remaining visits.
+    ids_adh <- dt[adh == 1, unique(id)]
+    dt[id %in% ids_adh, adh := na.locf(adh, na.rm = F), by = id]
+    
+    # For women with assigned adherence of 0 at visit 0, there are two opportunities to become adherent: following implementation of adherence interventions and after 3 months of study participation. Carry forward value of 0 for duration of period 1, then conduct new random binomial draw for period 2.
+    ids_non_adh <- dt[adh == 0, unique(id)]
+    dt[id %in% ids_non_adh & adh_period == 1, adh := na.locf(adh, na.rm = F), by = id]
+    
+    dt[id %in% ids_non_adh & adh_period == 2, temp_n := 1:.N, by = id]
+    dt[id %in% ids_non_adh & adh_period == 2 & temp_n == 1, adh := rbinom(n = nrow(dt[id %in% ids_non_adh & adh_period == 2 & temp_n == 1]), size = 1, prob = incr_prob_adh)]
+    
+    # Carry forward adherence values of 1 and 0 newly assigned to period 2
+    ids_adh <- dt[id %in% ids_non_adh & adh_period == 2 & temp_n == 1 & adh == 1, unique(id)]
+    dt[id %in% ids_adh, adh := na.locf(adh, na.rm = F), by = id]
+    
+    ids_non_adh <- dt[id %in% ids_non_adh & adh_period == 2 & temp_n == 1 & adh == 0, unique(id)]
+    dt[id %in% ids_non_adh & adh_period == 2, adh := na.locf(adh, na.rm = F), by = id]
+    
+    # Assign adherence values for period 3 among those who were still non-adherent in period 2
+    dt[, temp_n := NULL]
+    dt[id %in% ids_non_adh & adh_period == 3, temp_n := 1:.N, by = id]
+    dt[id %in% ids_non_adh & adh_period == 3 & temp_n == 1, adh := rbinom(n = nrow(dt[id %in% ids_non_adh & adh_period == 3 & temp_n == 1]), size = 1, prob = incr_prob_adh)]
+    
+    # Carry forward adherence values of 1 and 0 newly assigned to period 3
+    dt[, adh := na.locf(adh, na.rm = F), by = id]
+    
+    # Calculate proportion of visits at which women are adherent (approximate, since observed time on study per obs_on_study will vary from simulation to simulation)
+    prop_adh_current <- dt[obs_on_study == 1, mean(adh)]
+    
+    if(target_adh > prop_adh_current) {
+      
+      # Assign the new probability of adherence as the difference between the current proportion adherent and the increase in probablity to meet target adherence coverage. 
+      dt[, new_prob_adh := (prob_adh * (target_adh/prop_adh_current)) - prob_adh]
+      
+      while(prop_adh_current < (target_adh - 0.015)) {
+        # Reassign adherence among those initially assigned non-adherent
+        dt[adh == 0, adh := NA]
+        
+        # Assign adherence at visit 0
+        dt[visit == 0 & is.na(adh), adh := rbinom(n = nrow(dt[visit == 0 & is.na(adh)]), size = 1, prob = new_prob_adh)]
+        
+        # For women with assigned adherence of 1 at visit 0, carry forward value of 1 for remaining visits.
+        ids_adh <- dt[adh == 1, unique(id)]
+        dt[id %in% ids_adh, adh := na.locf(adh, na.rm = F), by = id]
+        
+        # For women with assigned adherence of 0 at visit 0, there are two opportunities to become adherent: following implementation of adherence interventions and after 3 months of study participation. Carry forward value of 0 for duration of period 1, then conduct new random binomial draw for period 2.
+        ids_non_adh <- dt[adh == 0, unique(id)]
+        dt[id %in% ids_non_adh & adh_period == 1, adh := na.locf(adh, na.rm = F), by = id]
+        
+        dt[, temp_n := NULL]
+        dt[id %in% ids_non_adh & adh_period == 2, temp_n := 1:.N, by = id]
+        dt[id %in% ids_non_adh & adh_period == 2 & temp_n == 1, adh := rbinom(n = nrow(dt[id %in% ids_non_adh & adh_period == 2 & temp_n == 1]), size = 1, prob = new_prob_adh)]
+        
+        # Carry forward adherence values of 1 and 0 newly assigned to period 2
+        ids_adh <- dt[id %in% ids_non_adh & adh_period == 2 & temp_n == 1 & adh == 1, unique(id)]
+        dt[id %in% ids_adh, adh := na.locf(adh, na.rm = F), by = id]
+        
+        ids_non_adh <- dt[id %in% ids_non_adh & adh_period == 2 & temp_n == 1 & adh == 0, unique(id)]
+        dt[id %in% ids_non_adh & adh_period == 2, adh := na.locf(adh, na.rm = F), by = id]
+        
+        # Assign adherence values for period 3 among those who were still non-adherent in period 2
+        dt[, temp_n := NULL]
+        dt[id %in% ids_non_adh & adh_period == 3, temp_n := 1:.N, by = id]
+        dt[id %in% ids_non_adh & adh_period == 3 & temp_n == 1, adh := rbinom(n = nrow(dt[id %in% ids_non_adh & adh_period == 3 & temp_n == 1]), size = 1, prob = new_prob_adh)]
+        
+        # Carry forward adherence values of 1 and 0 newly assigned to period 3
+        dt[, adh := na.locf(adh, na.rm = F), by = id]
+        
+        prop_adh_current <- dt[obs_on_study == 1, mean(adh)]
+      }
+    } else {
+      
+      # Assign the new probability of adherence as the difference between the current proportion adherent and the increase in probablity to meet target adherence coverage. 
+      dt[, new_prob_adh := prob_adh * (target_adh/prop_adh_current)]
+      
+      # Re-assign value of increased probability of adherence at periods 2 and 3
+      dt[, incr_prob_adh := c(0, diff(new_prob_adh)), by = id]
+      
+      # Reset prop_adh_current to 0  for the while loop below to function correctly
+      prop_adh_current <- 0
+      
+      while(prop_adh_current < (target_adh - 0.015)) {
+        # Reassign adherence for all participants
+        dt[, adh := NULL]
+        
+        # Calculate adherence for visit 0 for all women
+        dt[visit == 0, adh := rbinom(n = nrow(dt[visit == 0]), size = 1, prob = new_prob_adh)]
+        
+        # For women with assigned adherence of 1 at visit 0, carry forward value of 1 for remaining visits.
+        ids_adh <- dt[adh == 1, unique(id)]
+        dt[id %in% ids_adh, adh := na.locf(adh, na.rm = F), by = id]
+        
+        # For women with assigned adherence of 0 at visit 0, there are two opportunities to become adherent: following implementation of adherence interventions and after 3 months of study participation. Carry forward value of 0 for duration of period 1, then conduct new random binomial draw for period 2.
+        ids_non_adh <- dt[adh == 0, unique(id)]
+        dt[id %in% ids_non_adh & adh_period == 1, adh := na.locf(adh, na.rm = F), by = id]
+        
+        dt[id %in% ids_non_adh & adh_period == 2, temp_n := 1:.N, by = id]
+        dt[id %in% ids_non_adh & adh_period == 2 & temp_n == 1, adh := rbinom(n = nrow(dt[id %in% ids_non_adh & adh_period == 2 & temp_n == 1]), size = 1, prob = incr_prob_adh)]
+        
+        # Carry forward adherence values of 1 and 0 newly assigned to period 2
+        ids_adh <- dt[id %in% ids_non_adh & adh_period == 2 & temp_n == 1 & adh == 1, unique(id)]
+        dt[id %in% ids_adh, adh := na.locf(adh, na.rm = F), by = id]
+        
+        ids_non_adh <- dt[id %in% ids_non_adh & adh_period == 2 & temp_n == 1 & adh == 0, unique(id)]
+        dt[id %in% ids_non_adh & adh_period == 2, adh := na.locf(adh, na.rm = F), by = id]
+        
+        # Assign adherence values for period 3 among those who were still non-adherent in period 2
+        dt[, temp_n := NULL]
+        dt[id %in% ids_non_adh & adh_period == 3, temp_n := 1:.N, by = id]
+        dt[id %in% ids_non_adh & adh_period == 3 & temp_n == 1, adh := rbinom(n = nrow(dt[id %in% ids_non_adh & adh_period == 3 & temp_n == 1]), size = 1, prob = incr_prob_adh)]
+        
+        # Carry forward adherence values of 1 and 0 newly assigned to period 3
+        dt[, adh := na.locf(adh, na.rm = F), by = id]
+        
+        prop_adh_current <- dt[obs_on_study == 1, mean(adh)]
+      }
+    }
+  }
   
   return(dt[, adh])
 }

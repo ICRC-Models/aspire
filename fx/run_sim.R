@@ -37,6 +37,9 @@ run_sim <- function(lambda, cond_rr, c, s, rr_ai, p_rate_rr, base_male_hiv_incid
   # Assign relative probability of having an HIV-positive male partner
   f_dt[, m_hiv_rr := sapply(f_age, function(x) { assign_m_hiv_rr(age = x, c = c, s = s) })]
   
+  # Among women who became pregnant, there were no seroconversions. Set m_hiv_rr to 0 for these women to preclude having an HIV-positive partner and prevent incident infections in their partners.
+  f_dt[any_preg == 1, m_hiv_rr := 0]
+  
   setkey(f_dt, id, visit)
   
   # Create vector of participant ids repeated once for each partner
@@ -66,6 +69,9 @@ run_sim <- function(lambda, cond_rr, c, s, rr_ai, p_rate_rr, base_male_hiv_incid
   m_dt[id %in% f_dt[m_hiv == "positive" & m_arv == F, id], 
        vl := assign_male_vl_trt_known(dt = m_dt[id %in% f_dt[m_hiv == "positive" & m_arv == F, id], .(m_age, hiv)])]
   
+  # One woman who became pregnant reported an HIV-positive partner and reported that her partner was not on ARVs. As this participant did not seroconvert, assume minimum viral load in her partner.
+  m_dt[id %in% f_dt[m_hiv == "positive" & m_arv == F & any_preg == 1, id], vl := log10(50)]
+  
   # Among married women, if reported partner HIV status is negative, set partner status to negative
   m_dt[id %in% f_dt[b_married == 1 & m_hiv == "negative" & f_age_cat == "27-45", id], `:=`(hiv = as.integer(0), vl = as.integer(0))]
   
@@ -77,17 +83,17 @@ run_sim <- function(lambda, cond_rr, c, s, rr_ai, p_rate_rr, base_male_hiv_incid
   f_dt[visit == 0, hiv := as.integer(0)]
   
   # Assign adherence to both placebo and active arms. Assign to placebo in order to create a comparable group for analyses comparing women across arms by adherence status. f_dt has key of id and visit before and after assign_adh function, so below code will merge correctly by id and visit.
-  f_dt[, adh := assign_adh(dt = f_dt[, .(id, visit, site, f_age, post_adh_intervention)], prop_adh = prop_adh)]
+  f_dt[, adh := assign_adh(dt = f_dt[, .(id, visit, obs_on_study, site, f_age, prob_adh, incr_prob_adh, post_adh_intervention, time_study_gt_three_mos, adh_period)], target_adh = prop_adh)]
   
   # Create table to track cumulative risk in the placebo and active arms. The number of time steps will be variable, so make the table very large, and then reduce size below. 
-  risk_inf_dt <- as.data.table(expand.grid(time = 1:150, arm = as.double(0:1), n_inf = NA_real_, n_inf_pre_ring = NA_real_, n_acts = NA_real_, n_inf_vi_excl = NA_real_, n_acts_vi_excl = NA_real_, n_inf_vi_excl_adh = NA_real_, n_acts_vi_excl_adh = NA_real_, n_inf_any_ai = NA_real_, n_acts_any_ai = NA_real_, n_inf_any_ai_adh = NA_real_, n_acts_any_ai_adh = NA_real_))
+  risk_inf_dt <- as.data.table(expand.grid(time = 1:60, arm = as.double(0:1), n_inf = NA_real_, n_inf_pre_ring = NA_real_, n_acts = NA_real_, n_inf_vi_excl = NA_real_, n_acts_vi_excl = NA_real_, n_inf_vi_excl_adh = NA_real_, n_acts_vi_excl_adh = NA_real_, n_inf_any_ai = NA_real_, n_acts_any_ai = NA_real_, n_inf_any_ai_adh = NA_real_, n_acts_any_ai_adh = NA_real_))
   setkey(risk_inf_dt, time)
   
   # Create empty data table to track risk of infection at all HIV-exposed sex acts. Push to global environment to be available in hiv_transmission function.
   acts_dt <<- data.table(id = NA_real_, time = NA_real_, arm = NA_real_, risk_inf = NA_real_, hiv_act = NA_real_, act_id = NA_real_, post_enrollment = NA_real_, early_term_censor = NA_real_)
   
   # Create data table to track co-factors for HIV infection by arm and risk, prior to application of RR of ring.
-  balanced_dt <- as.data.table(expand.grid(time = 1:150, arm = as.double(0:1), median_age = NA_real_, median_vl = NA_real_, median_prob_condom = NA_real_, mean_sti = NA_real_, prop_bv = NA_real_, n_partners_hiv = NA_real_, n_acts = NA_real_))
+  balanced_dt <- as.data.table(expand.grid(time = 1:60, arm = as.double(0:1), median_age = NA_real_, median_vl = NA_real_, median_prob_condom = NA_real_, mean_sti = NA_real_, prop_bv = NA_real_, n_partners_hiv = NA_real_, n_acts = NA_real_))
   setkey(balanced_dt, time, arm)
   
   # Initialize number of HIV infections to 0 and timestep to 1.
@@ -95,7 +101,7 @@ run_sim <- function(lambda, cond_rr, c, s, rr_ai, p_rate_rr, base_male_hiv_incid
   t         <- 1
   
   # Create vector to track the number of active partnerships at each timestep
-  n_active_partnerships <- numeric(150)
+  n_active_partnerships <- numeric(60)
   
   # Run simulation until 168 infections have occurred. Simulations should run for a minimum of 31 timesteps.
   while(n_hiv_inf < 168 | t <= 31) {
@@ -139,14 +145,15 @@ run_sim <- function(lambda, cond_rr, c, s, rr_ai, p_rate_rr, base_male_hiv_incid
     # Increment timestep
     t <- t + 1
     
-    if(t > 50) { break } # If time to achieve 168 infections is greater than 50 months, end simulation.
+    if(t > 60) { break } # If time to achieve 168 infections is greater than 60 months, end simulation.
   }
   
   # Calculate the number of HIV-positive partners by arm at each timestep, prior to censoring
   n_part_hiv_dt <- f_dt[!is.na(n_part_hiv), .(n_part_hiv = sum(n_part_hiv), pre_censor = 1), by = c("visit", "arm")]
   
   # Create adherence data table to estimate the proportion of women adherent before and after adherence interventions
-  adh_dt <- unique(f_dt[, .(id, post_adh_intervention, site, f_age_cat, adh)])
+  #adh_dt <- unique(f_dt[, .(id, post_adh_intervention, time_study_gt_three_mos, site, f_age_cat, adh)])
+  adh_dt <- unique(f_dt[, .(id, arm, visit, post_adh_intervention, time_study_gt_three_mos, site, f_age_cat, adh)])
   
   # Clean up: Remove rows prior to a participant enrolling and after early termination.
   f_dt <- f_dt[post_enrollment == 1 & early_term_censor == 0]
@@ -169,8 +176,8 @@ run_sim <- function(lambda, cond_rr, c, s, rr_ai, p_rate_rr, base_male_hiv_incid
   # Reset visit number to begin from 1 for each participant.
   f_dt[, visit := 1:.N, by = id]
   
-  # Keep longitudinal dataset to estimate HR over time
-  long_dt <- f_dt[, .(id, visit, hiv, f_age_cat, arm)]
+  # Keep longitudinal dataset to estimate HR over time and to evaluate adherence
+  long_dt <- f_dt[, .(id, visit, hiv, site, f_age_cat, arm, adh, prob_adh, post_adh_intervention, time_study_gt_three_mos, ring_worries, pknow_study, same_psp, bl_ocp)]
   
   exp_dt <- f_dt[, .(exposures = sum(n_acts_hiv_pos, na.rm = T)), by = c("visit", "arm")]
   

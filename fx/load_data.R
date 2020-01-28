@@ -33,6 +33,5 @@ load_data <- function(working_directory = wd) {
   load(file = paste0(wd, "/data-private/age_mix_mat.RDATA"), envir = .GlobalEnv)
   load(file = paste0(wd, "/data-public/cond_dt.RData"),      envir = .GlobalEnv)
   load(file = paste0(wd, "/data-public/ai_dt.RData"),        envir = .GlobalEnv)
-  load(file = paste0(wd, "/data-public/adh_dt.RData"),       envir = .GlobalEnv)
 
 }

@@ -18,72 +18,38 @@ run_debug_sims <- function(n_sims, run_debug_rerandomize, run_prev_ai, run_prop_
 }
 
 # Function to plot histogram of per-act RRs. Includes all infections (possible to have > 1 per woman) and acts. 
-plot_hist_per_act_rr <- function(output_list, n_sims, common_x_axis = F, total = T) {
+plot_hist_per_act_rr <- function(output_list, n_sims, common_x_axis = F) {
   
-  if(total) {
-    if(common_x_axis) {
-      all_rr <- c(sapply(output_list, function(x) x$ri_dt[arm == 1, mean(n_inf_total)/mean(n_acts_total)]/x$ri_dt[arm == 0, mean(n_inf_total)/mean(n_acts_total)]),
-                  sapply(output_list, function(x) x$ri_dt[arm == 1, mean(n_inf_total_vi_excl)/mean(n_acts_total_vi_excl)]/x$ri_dt[arm == 0, mean(n_inf_total_vi_excl)/mean(n_acts_total_vi_excl)]),
-                  sapply(output_list, function(x) x$ri_dt[arm == 1, mean(n_inf_total_any_ai)/mean(n_acts_total_any_ai)]/x$ri_dt[arm == 0, mean(n_inf_total_any_ai)/mean(n_acts_total_any_ai)]))
-      
-      max_x_val <- max(all_rr)
-      
-      ret_plot <- ggplot() +
-        geom_histogram(data = data.table(rr = sapply(output_list, function(x) x$ri_dt[arm == 1, mean(n_inf_total)/mean(n_acts_total)]/x$ri_dt[arm == 0, mean(n_inf_total)/mean(n_acts_total)])), aes(x = rr), bins = 30, fill = "grey", color = "darkgrey") +
-        coord_cartesian(xlim = c(0, max_x_val)) +
-        labs(x = "Relative risk", y = "Count", title = paste0("Distribution of per-act relative risk across ", n_sims, " simulations"), subtitle = "Includes all infections (>1 per woman possible) and acts") +
-        theme(text = element_text(family = "Times"),
-              panel.background = element_blank(),
-              panel.border = element_rect(color = "black", fill = NA),
-              panel.grid.major = element_line(color = "grey", size = 0.2),
-              panel.grid.minor = element_line(color = "grey", size = 0.1),
-              plot.title = element_text(hjust = 0.5),
-              plot.subtitle = element_text(hjust = 0.5))
-    } else {
-      ret_plot <- ggplot() +
-        geom_histogram(data = data.table(rr = sapply(output_list, function(x) x$ri_dt[arm == 1, mean(n_inf_total)/mean(n_acts_total)]/x$ri_dt[arm == 0, mean(n_inf_total)/mean(n_acts_total)])), aes(x = rr), bins = 30, fill = "grey", color = "darkgrey") +
-        coord_cartesian(xlim = c(0, 1)) +
-        labs(x = "Relative risk", y = "Count", title = paste0("Distribution of per-act relative risk across ", n_sims, " simulations"), subtitle = "Includes all infections (>1 per woman possible) and acts") +
-        theme(text = element_text(family = "Times"),
-              panel.background = element_blank(),
-              panel.border = element_rect(color = "black", fill = NA),
-              panel.grid.major = element_line(color = "grey", size = 0.2),
-              panel.grid.minor = element_line(color = "grey", size = 0.1),
-              plot.title = element_text(hjust = 0.5),
-              plot.subtitle = element_text(hjust = 0.5))
-    }
+  if(common_x_axis) {
+    all_rr <- c(sapply(output_list, function(x) x$ri_dt[arm == 1, mean(n_inf)/mean(n_acts)]/x$ri_dt[arm == 0, mean(n_inf)/mean(n_acts)]),
+                sapply(output_list, function(x) x$ri_dt[arm == 1, mean(n_inf_vi_excl)/mean(n_acts_vi_excl)]/x$ri_dt[arm == 0, mean(n_inf_vi_excl)/mean(n_acts_vi_excl)]),
+                sapply(output_list, function(x) x$ri_dt[arm == 1, mean(n_inf_any_ai)/mean(n_acts_any_ai)]/x$ri_dt[arm == 0, mean(n_inf_any_ai)/mean(n_acts_any_ai)]))
+    
+    max_x_val <- max(all_rr)
+    
+    ret_plot <- ggplot() +
+      geom_histogram(data = data.table(rr = sapply(output_list, function(x) x$ri_dt[arm == 1, mean(n_inf)/mean(n_acts)]/x$ri_dt[arm == 0, mean(n_inf)/mean(n_acts)])), aes(x = rr), bins = 30, fill = "grey", color = "darkgrey") +
+      coord_cartesian(xlim = c(0, max_x_val)) +
+      labs(x = "Relative risk", y = "Count", title = paste0("Distribution of per-act relative risk across ", n_sims, " simulations"), subtitle = "Includes all infections (>1 per woman possible) and acts") +
+      theme(text = element_text(family = "Times"),
+            panel.background = element_blank(),
+            panel.border = element_rect(color = "black", fill = NA),
+            panel.grid.major = element_line(color = "grey", size = 0.2),
+            panel.grid.minor = element_line(color = "grey", size = 0.1),
+            plot.title = element_text(hjust = 0.5),
+            plot.subtitle = element_text(hjust = 0.5))
   } else {
-    if(common_x_axis) {
-      all_rr <- c(sapply(output_list, function(x) x$ri_dt[arm == 1, mean(n_inf)/mean(n_acts)]/x$ri_dt[arm == 0, mean(n_inf)/mean(n_acts)]),
-                  sapply(output_list, function(x) x$ri_dt[arm == 1, mean(n_inf_vi_excl)/mean(n_acts_vi_excl)]/x$ri_dt[arm == 0, mean(n_inf_vi_excl)/mean(n_acts_vi_excl)]),
-                  sapply(output_list, function(x) x$ri_dt[arm == 1, mean(n_inf_any_ai)/mean(n_acts_any_ai)]/x$ri_dt[arm == 0, mean(n_inf_any_ai)/mean(n_acts_any_ai)]))
-      
-      max_x_val <- max(all_rr)
-      
-      ret_plot <- ggplot() +
-        geom_histogram(data = data.table(rr = sapply(output_list, function(x) x$ri_dt[arm == 1, mean(n_inf)/mean(n_acts)]/x$ri_dt[arm == 0, mean(n_inf)/mean(n_acts)])), aes(x = rr), bins = 30, fill = "grey", color = "darkgrey") +
-        coord_cartesian(xlim = c(0, max_x_val)) +
-        labs(x = "Relative risk", y = "Count", title = paste0("Distribution of per-act relative risk across ", n_sims, " simulations"), subtitle = "Includes all infections (>1 per woman possible) and acts") +
-        theme(text = element_text(family = "Times"),
-              panel.background = element_blank(),
-              panel.border = element_rect(color = "black", fill = NA),
-              panel.grid.major = element_line(color = "grey", size = 0.2),
-              panel.grid.minor = element_line(color = "grey", size = 0.1),
-              plot.title = element_text(hjust = 0.5),
-              plot.subtitle = element_text(hjust = 0.5))
-    } else {
-      ret_plot <- ggplot() +
-        geom_histogram(data = data.table(rr = sapply(output_list, function(x) x$ri_dt[arm == 1, mean(n_inf)/mean(n_acts)]/x$ri_dt[arm == 0, mean(n_inf)/mean(n_acts)])), aes(x = rr), bins = 30, fill = "grey", color = "darkgrey") +
-        coord_cartesian(xlim = c(0, 1)) +
-        labs(x = "Relative risk", y = "Count", title = paste0("Distribution of per-act relative risk across ", n_sims, " simulations"), subtitle = "Includes all infections (>1 per woman possible) and acts") +
-        theme(text = element_text(family = "Times"),
-              panel.background = element_blank(),
-              panel.border = element_rect(color = "black", fill = NA),
-              panel.grid.major = element_line(color = "grey", size = 0.2),
-              panel.grid.minor = element_line(color = "grey", size = 0.1),
-              plot.title = element_text(hjust = 0.5),
-              plot.subtitle = element_text(hjust = 0.5))
-    }
+    ret_plot <- ggplot() +
+      geom_histogram(data = data.table(rr = sapply(output_list, function(x) x$ri_dt[arm == 1, mean(n_inf)/mean(n_acts)]/x$ri_dt[arm == 0, mean(n_inf)/mean(n_acts)])), aes(x = rr), bins = 30, fill = "grey", color = "darkgrey") +
+      coord_cartesian(xlim = c(0, 1)) +
+      labs(x = "Relative risk", y = "Count", title = paste0("Distribution of per-act relative risk across ", n_sims, " simulations"), subtitle = "Includes all infections (>1 per woman possible) and acts") +
+      theme(text = element_text(family = "Times"),
+            panel.background = element_blank(),
+            panel.border = element_rect(color = "black", fill = NA),
+            panel.grid.major = element_line(color = "grey", size = 0.2),
+            panel.grid.minor = element_line(color = "grey", size = 0.1),
+            plot.title = element_text(hjust = 0.5),
+            plot.subtitle = element_text(hjust = 0.5))
   }
   
   return(ret_plot)
@@ -144,45 +110,25 @@ plot_hist_per_act_no_ring <- function(output_list, n_sims) {
 }
 
 # Plot histogram of per-act relative risk of infection among women engaged exclusively in vaginal intercourse
-plot_hist_per_act_rr_vi_excl <- function(output_list, n_sims, total = F) {
+plot_hist_per_act_rr_vi_excl <- function(output_list, n_sims) {
   
-  if(total) {
-    all_rr <- c(sapply(output_list, function(x) x$ri_dt[arm == 1, mean(n_inf_total)/mean(n_acts_total)]/x$ri_dt[arm == 0, mean(n_inf_total)/mean(n_acts_total)]),
-                sapply(output_list, function(x) x$ri_dt[arm == 1, mean(n_inf_total_vi_excl)/mean(n_acts_total_vi_excl)]/x$ri_dt[arm == 0, mean(n_inf_total_vi_excl)/mean(n_acts_total_vi_excl)]),
-                sapply(output_list, function(x) x$ri_dt[arm == 1, mean(n_inf_total_any_ai)/mean(n_acts_total_any_ai)]/x$ri_dt[arm == 0, mean(n_inf_total_any_ai)/mean(n_acts_total_any_ai)]))
-    
-    max_x_val <- max(all_rr)
-    
-    ret_plot <- ggplot() +
-      geom_histogram(data = data.table(rr = sapply(output_list, function(x) x$ri_dt[arm == 1, mean(n_inf_total_vi_excl)/mean(n_acts_total_vi_excl)]/x$ri_dt[arm == 0, mean(n_inf_total_vi_excl)/mean(n_acts_total_vi_excl)])), aes(x = rr), bins = 30, fill = "grey", color = "darkgrey") +
-      coord_cartesian(xlim = c(0, max_x_val)) +
-      labs(x = "Relative risk", y = "Count", title = paste0("Distribution of per-act relative risk across ", n_sims, " simulations\namong women engaged in exclusively RVI"), subtitle = "Includes all infections (>1 per woman possible) and acts") +
-      theme(text = element_text(family = "Times"),
-            panel.background = element_blank(),
-            panel.border = element_rect(color = "black", fill = NA),
-            panel.grid.major = element_line(color = "grey", size = 0.2),
-            panel.grid.minor = element_line(color = "grey", size = 0.1),
-            plot.title = element_text(hjust = 0.5),
-            plot.subtitle = element_text(hjust = 0.5))
-  } else {
-    all_rr <- c(sapply(output_list, function(x) x$ri_dt[arm == 1, mean(n_inf)/mean(n_acts)]/x$ri_dt[arm == 0, mean(n_inf)/mean(n_acts)]),
-                sapply(output_list, function(x) x$ri_dt[arm == 1, mean(n_inf_vi_excl)/mean(n_acts_vi_excl)]/x$ri_dt[arm == 0, mean(n_inf_vi_excl)/mean(n_acts_vi_excl)]),
-                sapply(output_list, function(x) x$ri_dt[arm == 1, mean(n_inf_any_ai)/mean(n_acts_any_ai)]/x$ri_dt[arm == 0, mean(n_inf_any_ai)/mean(n_acts_any_ai)]))
-    
-    max_x_val <- max(all_rr)
-    
-    ret_plot <- ggplot() +
-      geom_histogram(data = data.table(rr = sapply(output_list, function(x) x$ri_dt[arm == 1, mean(n_inf_vi_excl)/mean(n_acts_vi_excl)]/x$ri_dt[arm == 0, mean(n_inf_vi_excl)/mean(n_acts_vi_excl)])), aes(x = rr), bins = 30, fill = "grey", color = "darkgrey") +
-      coord_cartesian(xlim = c(0, max_x_val)) +
-      labs(x = "Relative risk", y = "Count", title = paste0("Distribution of per-act relative risk across ", n_sims, " simulations\namong women engaged in exclusively RVI"), subtitle = "Includes all infections (>1 per woman possible) and acts") +
-      theme(text = element_text(family = "Times"),
-            panel.background = element_blank(),
-            panel.border = element_rect(color = "black", fill = NA),
-            panel.grid.major = element_line(color = "grey", size = 0.2),
-            panel.grid.minor = element_line(color = "grey", size = 0.1),
-            plot.title = element_text(hjust = 0.5),
-            plot.subtitle = element_text(hjust = 0.5))
-  }
+  all_rr <- c(sapply(output_list, function(x) x$ri_dt[arm == 1, mean(n_inf)/mean(n_acts)]/x$ri_dt[arm == 0, mean(n_inf)/mean(n_acts)]),
+              sapply(output_list, function(x) x$ri_dt[arm == 1, mean(n_inf_vi_excl)/mean(n_acts_vi_excl)]/x$ri_dt[arm == 0, mean(n_inf_vi_excl)/mean(n_acts_vi_excl)]),
+              sapply(output_list, function(x) x$ri_dt[arm == 1, mean(n_inf_any_ai)/mean(n_acts_any_ai)]/x$ri_dt[arm == 0, mean(n_inf_any_ai)/mean(n_acts_any_ai)]))
+  
+  max_x_val <- max(all_rr)
+  
+  ret_plot <- ggplot() +
+    geom_histogram(data = data.table(rr = sapply(output_list, function(x) x$ri_dt[arm == 1, mean(n_inf_vi_excl)/mean(n_acts_vi_excl)]/x$ri_dt[arm == 0, mean(n_inf_vi_excl)/mean(n_acts_vi_excl)])), aes(x = rr), bins = 30, fill = "grey", color = "darkgrey") +
+    coord_cartesian(xlim = c(0, max_x_val)) +
+    labs(x = "Relative risk", y = "Count", title = paste0("Distribution of per-act relative risk across ", n_sims, " simulations\namong women engaged in exclusively RVI"), subtitle = "Includes all infections (>1 per woman possible) and acts") +
+    theme(text = element_text(family = "Times"),
+          panel.background = element_blank(),
+          panel.border = element_rect(color = "black", fill = NA),
+          panel.grid.major = element_line(color = "grey", size = 0.2),
+          panel.grid.minor = element_line(color = "grey", size = 0.1),
+          plot.title = element_text(hjust = 0.5),
+          plot.subtitle = element_text(hjust = 0.5))
   
   return(ret_plot)
 }
@@ -190,131 +136,71 @@ plot_hist_per_act_rr_vi_excl <- function(output_list, n_sims, total = F) {
 # Plot histogram of per-act relative risk of infection among women engaged exclusively in vaginal intercourse and with high adherence.
 plot_hist_per_act_rr_vi_excl_adh <- function(output_list, n_sims, total = F) {
   
-  if(total) {
-    all_rr <- c(sapply(output_list, function(x) x$ri_dt[arm == 1, mean(n_inf_total)/mean(n_acts_total)]/x$ri_dt[arm == 0, mean(n_inf_total)/mean(n_acts_total)]),
-                sapply(output_list, function(x) x$ri_dt[arm == 1, mean(n_inf_total_vi_excl)/mean(n_acts_total_vi_excl)]/x$ri_dt[arm == 0, mean(n_inf_total_vi_excl)/mean(n_acts_total_vi_excl)]),
-                sapply(output_list, function(x) x$ri_dt[arm == 1, mean(n_inf_total_any_ai)/mean(n_acts_total_any_ai)]/x$ri_dt[arm == 0, mean(n_inf_total_any_ai)/mean(n_acts_total_any_ai)]))
-    
-    max_x_val <- max(all_rr)
-    
-    ret_plot <- ggplot() +
-      geom_histogram(data = data.table(rr = sapply(output_list, function(x) x$ri_dt[arm == 1, mean(n_inf_total_vi_excl_adh)/mean(n_acts_total_vi_excl_adh)]/x$ri_dt[arm == 0, mean(n_inf_total_vi_excl_adh)/mean(n_acts_total_vi_excl_adh)])), aes(x = rr), bins = 30, fill = "grey", color = "darkgrey") +
-      coord_cartesian(xlim = c(0, max_x_val)) +
-      labs(x = "Relative risk", y = "Count", title = paste0("Distribution of per-act relative risk across ", n_sims, " simulations\namong women engaged in exclusively RVI and with high adherence"), subtitle = "Includes all infections (>1 per woman possible) and acts") +
-      theme(text = element_text(family = "Times"),
-            panel.background = element_blank(),
-            panel.border = element_rect(color = "black", fill = NA),
-            panel.grid.major = element_line(color = "grey", size = 0.2),
-            panel.grid.minor = element_line(color = "grey", size = 0.1),
-            plot.title = element_text(hjust = 0.5),
-            plot.subtitle = element_text(hjust = 0.5))
-  } else {
-    all_rr <- c(sapply(output_list, function(x) x$ri_dt[arm == 1, mean(n_inf)/mean(n_acts)]/x$ri_dt[arm == 0, mean(n_inf)/mean(n_acts)]),
-                sapply(output_list, function(x) x$ri_dt[arm == 1, mean(n_inf_vi_excl)/mean(n_acts_vi_excl)]/x$ri_dt[arm == 0, mean(n_inf_vi_excl)/mean(n_acts_vi_excl)]),
-                sapply(output_list, function(x) x$ri_dt[arm == 1, mean(n_inf_any_ai)/mean(n_acts_any_ai)]/x$ri_dt[arm == 0, mean(n_inf_any_ai)/mean(n_acts_any_ai)]))
-    
-    max_x_val <- max(all_rr)
-    
-    ret_plot <- ggplot() +
-      geom_histogram(data = data.table(rr = sapply(output_list, function(x) x$ri_dt[arm == 1, mean(n_inf_vi_excl_adh)/mean(n_acts_vi_excl_adh)]/x$ri_dt[arm == 0, mean(n_inf_vi_excl_adh)/mean(n_acts_vi_excl_adh)])), aes(x = rr), bins = 30, fill = "grey", color = "darkgrey") +
-      coord_cartesian(xlim = c(0, max_x_val)) +
-      labs(x = "Relative risk", y = "Count", title = paste0("Distribution of per-act relative risk across ", n_sims, " simulations\namong women engaged in exclusively RVI and with high adherence"), subtitle = "Includes all infections (>1 per woman possible) and acts") +
-      theme(text = element_text(family = "Times"),
-            panel.background = element_blank(),
-            panel.border = element_rect(color = "black", fill = NA),
-            panel.grid.major = element_line(color = "grey", size = 0.2),
-            panel.grid.minor = element_line(color = "grey", size = 0.1),
-            plot.title = element_text(hjust = 0.5),
-            plot.subtitle = element_text(hjust = 0.5))
-  }
+  all_rr <- c(sapply(output_list, function(x) x$ri_dt[arm == 1, mean(n_inf)/mean(n_acts)]/x$ri_dt[arm == 0, mean(n_inf)/mean(n_acts)]),
+              sapply(output_list, function(x) x$ri_dt[arm == 1, mean(n_inf_vi_excl)/mean(n_acts_vi_excl)]/x$ri_dt[arm == 0, mean(n_inf_vi_excl)/mean(n_acts_vi_excl)]),
+              sapply(output_list, function(x) x$ri_dt[arm == 1, mean(n_inf_any_ai)/mean(n_acts_any_ai)]/x$ri_dt[arm == 0, mean(n_inf_any_ai)/mean(n_acts_any_ai)]))
+  
+  max_x_val <- max(all_rr)
+  
+  ret_plot <- ggplot() +
+    geom_histogram(data = data.table(rr = sapply(output_list, function(x) x$ri_dt[arm == 1, mean(n_inf_vi_excl_adh)/mean(n_acts_vi_excl_adh)]/x$ri_dt[arm == 0, mean(n_inf_vi_excl_adh)/mean(n_acts_vi_excl_adh)])), aes(x = rr), bins = 30, fill = "grey", color = "darkgrey") +
+    coord_cartesian(xlim = c(0, max_x_val)) +
+    labs(x = "Relative risk", y = "Count", title = paste0("Distribution of per-act relative risk across ", n_sims, " simulations\namong women engaged in exclusively RVI and with high adherence"), subtitle = "Includes all infections (>1 per woman possible) and acts") +
+    theme(text = element_text(family = "Times"),
+          panel.background = element_blank(),
+          panel.border = element_rect(color = "black", fill = NA),
+          panel.grid.major = element_line(color = "grey", size = 0.2),
+          panel.grid.minor = element_line(color = "grey", size = 0.1),
+          plot.title = element_text(hjust = 0.5),
+          plot.subtitle = element_text(hjust = 0.5))
   
   return(ret_plot)
 }
 
 # Plot histogram of per-act relative risk of infection among women engaged in both vaginal and anal intercourse
-plot_hist_per_act_rr_any_ai <- function(output_list, n_sims, total = F) {
+plot_hist_per_act_rr_any_ai <- function(output_list, n_sims) {
   
-  if(total) {
-    all_rr <- c(sapply(output_list, function(x) x$ri_dt[arm == 1, mean(n_inf_total)/mean(n_acts_total)]/x$ri_dt[arm == 0, mean(n_inf_total)/mean(n_acts_total)]),
-                sapply(output_list, function(x) x$ri_dt[arm == 1, mean(n_inf_total_vi_excl)/mean(n_acts_total_vi_excl)]/x$ri_dt[arm == 0, mean(n_inf_total_vi_excl)/mean(n_acts_total_vi_excl)]),
-                sapply(output_list, function(x) x$ri_dt[arm == 1, mean(n_inf_total_any_ai)/mean(n_acts_total_any_ai)]/x$ri_dt[arm == 0, mean(n_inf_total_any_ai)/mean(n_acts_total_any_ai)]))
-    
-    max_x_val <- max(all_rr)
-    
-    ret_plot <- ggplot() +
-      geom_histogram(data = data.table(rr = sapply(output_list, function(x) x$ri_dt[arm == 1, mean(n_inf_total_any_ai)/mean(n_acts_total_any_ai)]/x$ri_dt[arm == 0, mean(n_inf_total_any_ai)/mean(n_acts_total_any_ai)])), aes(x = rr), bins = 30, fill = "grey", color = "darkgrey") +
-      coord_cartesian(xlim = c(0, max_x_val)) +
-      labs(x = "Relative risk", y = "Count", title = paste0("Distribution of per-act relative risk across ", n_sims, " simulations\namong women engaged in any RAI"), subtitle = "Includes all infections (>1 per woman possible) and acts") +
-      theme(text = element_text(family = "Times"),
-            panel.background = element_blank(),
-            panel.border = element_rect(color = "black", fill = NA),
-            panel.grid.major = element_line(color = "grey", size = 0.2),
-            panel.grid.minor = element_line(color = "grey", size = 0.1),
-            plot.title = element_text(hjust = 0.5),
-            plot.subtitle = element_text(hjust = 0.5))
-  } else {
-    all_rr <- c(sapply(output_list, function(x) x$ri_dt[arm == 1, mean(n_inf)/mean(n_acts)]/x$ri_dt[arm == 0, mean(n_inf)/mean(n_acts)]),
-                sapply(output_list, function(x) x$ri_dt[arm == 1, mean(n_inf_vi_excl)/mean(n_acts_vi_excl)]/x$ri_dt[arm == 0, mean(n_inf_vi_excl)/mean(n_acts_vi_excl)]),
-                sapply(output_list, function(x) x$ri_dt[arm == 1, mean(n_inf_any_ai)/mean(n_acts_any_ai)]/x$ri_dt[arm == 0, mean(n_inf_any_ai)/mean(n_acts_any_ai)]))
-    
-    max_x_val <- max(all_rr)
-    
-    ret_plot <- ggplot() +
-      geom_histogram(data = data.table(rr = sapply(output_list, function(x) x$ri_dt[arm == 1, mean(n_inf_any_ai)/mean(n_acts_any_ai)]/x$ri_dt[arm == 0, mean(n_inf_any_ai)/mean(n_acts_any_ai)])), aes(x = rr), bins = 30, fill = "grey", color = "darkgrey") +
-      coord_cartesian(xlim = c(0, max_x_val)) +
-      labs(x = "Relative risk", y = "Count", title = paste0("Distribution of per-act relative risk across ", n_sims, " simulations\namong women engaged in any RAI"), subtitle = "Includes all infections (>1 per woman possible) and acts") +
-      theme(text = element_text(family = "Times"),
-            panel.background = element_blank(),
-            panel.border = element_rect(color = "black", fill = NA),
-            panel.grid.major = element_line(color = "grey", size = 0.2),
-            panel.grid.minor = element_line(color = "grey", size = 0.1),
-            plot.title = element_text(hjust = 0.5),
-            plot.subtitle = element_text(hjust = 0.5))
-  }
+  all_rr <- c(sapply(output_list, function(x) x$ri_dt[arm == 1, mean(n_inf)/mean(n_acts)]/x$ri_dt[arm == 0, mean(n_inf)/mean(n_acts)]),
+              sapply(output_list, function(x) x$ri_dt[arm == 1, mean(n_inf_vi_excl)/mean(n_acts_vi_excl)]/x$ri_dt[arm == 0, mean(n_inf_vi_excl)/mean(n_acts_vi_excl)]),
+              sapply(output_list, function(x) x$ri_dt[arm == 1, mean(n_inf_any_ai)/mean(n_acts_any_ai)]/x$ri_dt[arm == 0, mean(n_inf_any_ai)/mean(n_acts_any_ai)]))
+  
+  max_x_val <- max(all_rr)
+  
+  ret_plot <- ggplot() +
+    geom_histogram(data = data.table(rr = sapply(output_list, function(x) x$ri_dt[arm == 1, mean(n_inf_any_ai)/mean(n_acts_any_ai)]/x$ri_dt[arm == 0, mean(n_inf_any_ai)/mean(n_acts_any_ai)])), aes(x = rr), bins = 30, fill = "grey", color = "darkgrey") +
+    coord_cartesian(xlim = c(0, max_x_val)) +
+    labs(x = "Relative risk", y = "Count", title = paste0("Distribution of per-act relative risk across ", n_sims, " simulations\namong women engaged in any RAI"), subtitle = "Includes all infections (>1 per woman possible) and acts") +
+    theme(text = element_text(family = "Times"),
+          panel.background = element_blank(),
+          panel.border = element_rect(color = "black", fill = NA),
+          panel.grid.major = element_line(color = "grey", size = 0.2),
+          panel.grid.minor = element_line(color = "grey", size = 0.1),
+          plot.title = element_text(hjust = 0.5),
+          plot.subtitle = element_text(hjust = 0.5))
   
   return(ret_plot)
 }
 
 # Plot histogram of per-act relative risk of infection among women engaged in both vaginal and anal intercourse and with high adherence
-plot_hist_per_act_rr_any_ai_adh <- function(output_list, n_sims, total = F) {
+plot_hist_per_act_rr_any_ai_adh <- function(output_list, n_sims) {
   
-  if(total) {
-    all_rr <- c(sapply(output_list, function(x) x$ri_dt[arm == 1, mean(n_inf_total)/mean(n_acts_total)]/x$ri_dt[arm == 0, mean(n_inf_total)/mean(n_acts_total)]),
-                sapply(output_list, function(x) x$ri_dt[arm == 1, mean(n_inf_total_vi_excl)/mean(n_acts_total_vi_excl)]/x$ri_dt[arm == 0, mean(n_inf_total_vi_excl)/mean(n_acts_total_vi_excl)]),
-                sapply(output_list, function(x) x$ri_dt[arm == 1, mean(n_inf_total_any_ai)/mean(n_acts_total_any_ai)]/x$ri_dt[arm == 0, mean(n_inf_total_any_ai)/mean(n_acts_total_any_ai)]))
-    
-    max_x_val <- max(all_rr)
-    
-    ret_plot <- ggplot() +
-      geom_histogram(data = data.table(rr = sapply(output_list, function(x) x$ri_dt[arm == 1, mean(n_inf_total_any_ai_adh)/mean(n_acts_total_any_ai_adh)]/x$ri_dt[arm == 0, mean(n_inf_total_any_ai_adh)/mean(n_acts_total_any_ai_adh)])), aes(x = rr), bins = 30, fill = "grey", color = "darkgrey") +
-      coord_cartesian(xlim = c(0, max_x_val)) +
-      labs(x = "Relative risk", y = "Count", title = paste0("Distribution of per-act relative risk across ", n_sims, " simulations\namong women engaged in any RAI and with high adherence"), subtitle = "Includes all infections (>1 per woman possible) and acts") +
-      theme(text = element_text(family = "Times"),
-            panel.background = element_blank(),
-            panel.border = element_rect(color = "black", fill = NA),
-            panel.grid.major = element_line(color = "grey", size = 0.2),
-            panel.grid.minor = element_line(color = "grey", size = 0.1),
-            plot.title = element_text(hjust = 0.5),
-            plot.subtitle = element_text(hjust = 0.5))
-  } else {
-    all_rr <- c(sapply(output_list, function(x) x$ri_dt[arm == 1, mean(n_inf)/mean(n_acts)]/x$ri_dt[arm == 0, mean(n_inf)/mean(n_acts)]),
-                sapply(output_list, function(x) x$ri_dt[arm == 1, mean(n_inf_vi_excl)/mean(n_acts_vi_excl)]/x$ri_dt[arm == 0, mean(n_inf_vi_excl)/mean(n_acts_vi_excl)]),
-                sapply(output_list, function(x) x$ri_dt[arm == 1, mean(n_inf_any_ai)/mean(n_acts_any_ai)]/x$ri_dt[arm == 0, mean(n_inf_any_ai)/mean(n_acts_any_ai)]))
-    
-    max_x_val <- max(all_rr)
-    
-    ret_plot <- ggplot() +
-      geom_histogram(data = data.table(rr = sapply(output_list, function(x) x$ri_dt[arm == 1, mean(n_inf_any_ai_adh)/mean(n_acts_any_ai_adh)]/x$ri_dt[arm == 0, mean(n_inf_any_ai_adh)/mean(n_acts_any_ai_adh)])), aes(x = rr), bins = 30, fill = "grey", color = "darkgrey") +
-      coord_cartesian(xlim = c(0, max_x_val)) +
-      labs(x = "Relative risk", y = "Count", title = paste0("Distribution of per-act relative risk across ", n_sims, " simulations\namong women engaged in any RAI and with high adherence"), subtitle = "Includes all infections (>1 per woman possible) and acts") +
-      theme(text = element_text(family = "Times"),
-            panel.background = element_blank(),
-            panel.border = element_rect(color = "black", fill = NA),
-            panel.grid.major = element_line(color = "grey", size = 0.2),
-            panel.grid.minor = element_line(color = "grey", size = 0.1),
-            plot.title = element_text(hjust = 0.5),
-            plot.subtitle = element_text(hjust = 0.5))
-  }
+  all_rr <- c(sapply(output_list, function(x) x$ri_dt[arm == 1, mean(n_inf)/mean(n_acts)]/x$ri_dt[arm == 0, mean(n_inf)/mean(n_acts)]),
+              sapply(output_list, function(x) x$ri_dt[arm == 1, mean(n_inf_vi_excl)/mean(n_acts_vi_excl)]/x$ri_dt[arm == 0, mean(n_inf_vi_excl)/mean(n_acts_vi_excl)]),
+              sapply(output_list, function(x) x$ri_dt[arm == 1, mean(n_inf_any_ai)/mean(n_acts_any_ai)]/x$ri_dt[arm == 0, mean(n_inf_any_ai)/mean(n_acts_any_ai)]))
+  
+  max_x_val <- max(all_rr)
+  
+  ret_plot <- ggplot() +
+    geom_histogram(data = data.table(rr = sapply(output_list, function(x) x$ri_dt[arm == 1, mean(n_inf_any_ai_adh)/mean(n_acts_any_ai_adh)]/x$ri_dt[arm == 0, mean(n_inf_any_ai_adh)/mean(n_acts_any_ai_adh)])), aes(x = rr), bins = 30, fill = "grey", color = "darkgrey") +
+    coord_cartesian(xlim = c(0, max_x_val)) +
+    labs(x = "Relative risk", y = "Count", title = paste0("Distribution of per-act relative risk across ", n_sims, " simulations\namong women engaged in any RAI and with high adherence"), subtitle = "Includes all infections (>1 per woman possible) and acts") +
+    theme(text = element_text(family = "Times"),
+          panel.background = element_blank(),
+          panel.border = element_rect(color = "black", fill = NA),
+          panel.grid.major = element_line(color = "grey", size = 0.2),
+          panel.grid.minor = element_line(color = "grey", size = 0.1),
+          plot.title = element_text(hjust = 0.5),
+          plot.subtitle = element_text(hjust = 0.5))
   
   return(ret_plot)
 }
@@ -352,8 +238,8 @@ plot_prev_ai <- function(output_list, n_sims, prev_ai) {
   return(ret_plot)
 }
 
-# Function to plot simulated and expected prevalence of adherence
-plot_prev_adh <- function(output_list, n_sims, prop_adh) {
+# Function to plot simulated and expected prevalence of adherence - OLD
+plot_prev_adh_old <- function(output_list, n_sims, prop_adh) {
   output_dt <- rbindlist(l = lapply(output_list, function(x) as.data.table(x$adh_dt %>% group_by(site, f_age_cat %in% c("18-21", "22-26"), post_adh_intervention) %>% summarise(prop_adh = mean(adh)))), idcol = "sim")
   
   output_dt[, age_cat := ifelse(`f_age_cat %in% c(\"18-21\", \"22-26\")`, "18-26", "27-45")]
@@ -389,6 +275,255 @@ plot_prev_adh <- function(output_list, n_sims, prop_adh) {
     coord_cartesian(ylim = c(0, 1))
   
   return(ret_plot)
+}
+
+# Function to plot simulated and expected prevalence of adherence
+plot_prev_adh <- function(output_list, n_sims) {
+  output_dt <- rbindlist(l = lapply(output_list, function(x) as.data.table(x$long_dt %>% group_by(visit) %>% summarise(prop_adh = mean(adh)))), idcol = "sim")
+  
+  load("~/Documents/code/aspire/data-private/adh_dt.RData")
+  obs_dt <- as.data.table(dt %>% group_by(visit) %>% summarise(prop_adh = mean(adh)))
+  obs_dt[, visit := as.integer(gsub(pattern = "01", replacement = "", x = visit))]
+  
+  output_dt[, scenario := "Simulated"]
+  obs_dt[, scenario := "Observed"]
+  
+  ggplot() +
+    geom_line(data = output_dt, aes(x = visit, y = prop_adh, group = sim, color = scenario), alpha = 0.15) +
+    geom_smooth(data = output_dt[visit <= 33], aes(x = visit, y = prop_adh, color = scenario), method = "loess", formula = y ~ x, se = F) +
+    geom_line(data = obs_dt, aes(x = visit, y = prop_adh, color = scenario)) +
+    coord_cartesian(ylim = c(0.5, 1)) +
+    labs(x = "Visit", y = "Proportion adherent", color = "", title = paste0("Proportion adherent (marginal) across ", n_sims, " simulations")) +
+    theme(text = element_text(family = "Times"),
+          panel.background = element_blank(),
+          panel.border = element_rect(color = "black", fill = NA),
+          panel.grid = element_line(color = "grey", size = 0.15),
+          legend.key = element_blank())
+}
+
+# Function to plot the proportion of overall visits at which women were adherent
+plot_proportion_visits_adh <- function(output_list, n_sims, target_adh) {
+  output_dt <- rbindlist(l = lapply(output_list, function(x) as.data.table(x$long_dt %>% summarise(prop_adh = mean(adh)))), idcol = "sim")
+  
+  ggplot(data = output_dt) +
+    geom_boxplot(aes(x = 1, y = prop_adh)) +
+    geom_hline(aes(yintercept = target_adh), color = "grey", linetype = "dashed") +
+    labs(x = "", y = "Proportion visits at\nwhich women were adherent") +
+    coord_cartesian(ylim = c(target_adh - 0.05, target_adh + 0.05)) +
+    theme(text = element_text(family = "Times"),
+          axis.text.x = element_blank(),
+          axis.ticks.x = element_blank())
+}
+
+# Function to plot the proportion of overall visits at which women were adherent, using all hypothetical adherence values
+plot_proportion_visits_adh_all <- function(output_dir, output_lists, n_sims, target_adhs) {
+  
+  output_dt <- data.table(expand.grid(sim = 1:n_sims, adh = target_adhs))
+  
+  for(i in 1:length(output_lists)) {
+    load(paste0(output_dir, "/results_list_", output_lists[i], ".RData"))
+    
+    output_dt[adh == target_adhs[i], prop_adh := rbindlist(l = lapply(results_list, function(x) as.data.table(x$long_dt %>% summarise(prop_adh = mean(adh)))))[, prop_adh]]
+  }
+  
+  ggplot(data = output_dt, aes()) +
+    geom_boxplot(aes(x = adh, y = prop_adh, group = adh, fill = as.factor(adh))) +
+    labs(x = "Target proportion adherent", y = "Simulated proportion adherent", title = paste0("Target and simulated adherence across ", n_sims, " simulations")) +
+    theme(text = element_text(family = "Times"),
+          panel.background = element_blank(),
+          panel.grid.major = element_line(color = "grey", size = 0.1),
+          panel.grid.minor.y = element_line(color = "grey", size = 0.1),
+          panel.border = element_rect(color = "black", fill = NA),
+          legend.position = "none")
+}
+
+# Functions to plot observed and simulated adherence by characteristics associated with adherence
+plot_adh_by_characteristic <- function(output_list, n_sims) {
+  
+  # Ring worries
+  output_dt <- rbindlist(l = lapply(output_list, function(x) as.data.table(x$long_dt %>% group_by(visit, ring_worries) %>% summarise(prop_adh = mean(adh)))), idcol = "sim")
+  
+  load("~/Documents/code/aspire/data-private/adh_dt.RData")
+  obs_dt <- as.data.table(dt %>% group_by(visit, ring_worries) %>% summarise(prop_adh = mean(adh)))
+  obs_dt[, visit := as.integer(gsub(pattern = "01", replacement = "", x = visit))]
+  
+  output_dt[, scenario := "Simulated"]
+  obs_dt[, scenario := "Observed"]
+  
+  plot_ring_worries <- ggplot() +
+    geom_line(data = output_dt, aes(x = visit, y = prop_adh, group = interaction(sim, ring_worries), color = ring_worries, linetype = scenario), alpha = 0.15) +
+    geom_smooth(data = output_dt[visit <= 33], aes(x = visit, y = prop_adh, color = ring_worries, linetype = scenario), method = "loess", formula = y ~ x, se = F) +
+    geom_line(data = obs_dt, aes(x = visit, y = prop_adh, color = ring_worries, linetype = scenario)) +
+    coord_cartesian(ylim = c(0.5, 1)) +
+    labs(x = "Visit", y = "Proportion adherent", color = "Worried about using ring", linetype = "", title = paste0("Proportion adherent by ring worries across ", n_sims, " simulations")) +
+    theme(text = element_text(family = "Times"),
+          panel.background = element_blank(),
+          panel.border = element_rect(color = "black", fill = NA),
+          panel.grid = element_line(color = "grey", size = 0.15),
+          legend.key = element_blank())
+  
+  # Age
+  output_dt <- rbindlist(l = lapply(output_list, function(x) as.data.table(x$long_dt %>% group_by(visit, f_age_cat == "27-45") %>% summarise(prop_adh = mean(adh)))), idcol = "sim")
+  setnames(output_dt, old = "f_age_cat == \"27-45\"", new = "age_cat")
+  output_dt[, age_cat := ifelse(age_cat == "TRUE", "27-45", "18-26")]
+  
+  obs_dt <- as.data.table(dt %>% group_by(visit, age_cat) %>% summarise(prop_adh = mean(adh)))
+  obs_dt[, visit := as.integer(gsub(pattern = "01", replacement = "", x = visit))]
+  
+  output_dt[, scenario := "Simulated"]
+  obs_dt[, scenario := "Observed"]
+  
+  plot_age <- ggplot() +
+    geom_line(data = output_dt, aes(x = visit, y = prop_adh, group = interaction(sim, age_cat), color = age_cat, linetype = scenario), alpha = 0.15) +
+    geom_smooth(data = output_dt[visit <= 33], aes(x = visit, y = prop_adh, color = age_cat, linetype = scenario), method = "loess", formula = y ~ x, se = F) +
+    geom_line(data = obs_dt, aes(x = visit, y = prop_adh, color = age_cat, linetype = scenario)) +
+    coord_cartesian(ylim = c(0.5, 1)) +
+    labs(x = "Visit", y = "Proportion adherent", color = "Age", linetype = "", title = paste0("Proportion adherent by age across ", n_sims, " simulations")) +
+    theme(text = element_text(family = "Times"),
+          panel.background = element_blank(),
+          panel.border = element_rect(color = "black", fill = NA),
+          panel.grid = element_line(color = "grey", size = 0.15),
+          legend.key = element_blank())
+  
+  # Participant aware in study
+  output_dt <- rbindlist(l = lapply(output_list, function(x) as.data.table(x$long_dt %>% group_by(visit, pknow_study) %>% summarise(prop_adh = mean(adh)))), idcol = "sim")
+  
+  obs_dt <- as.data.table(dt %>% group_by(visit, pknow_study) %>% summarise(prop_adh = mean(adh)))
+  obs_dt[, visit := as.integer(gsub(pattern = "01", replacement = "", x = visit))]
+  
+  output_dt[, scenario := "Simulated"]
+  obs_dt[, scenario := "Observed"]
+  
+  plot_pknow <- ggplot() +
+    geom_line(data = output_dt, aes(x = visit, y = prop_adh, group = interaction(sim, pknow_study), color = pknow_study, linetype = scenario), alpha = 0.15) +
+    geom_smooth(data = output_dt[visit <= 33], aes(x = visit, y = prop_adh, color = pknow_study, linetype = scenario), method = "loess", formula = y ~ x, se = F) +
+    geom_line(data = obs_dt, aes(x = visit, y = prop_adh, color = pknow_study, linetype = scenario)) +
+    coord_cartesian(ylim = c(0.5, 1)) +
+    labs(x = "Visit", y = "Proportion adherent", color = "Partner aware of study participation", linetype = "", title = paste0("Proportion adherent by partner awareness of\nstudy participation across ", n_sims, " simulations")) +
+    theme(text = element_text(family = "Times"),
+          panel.background = element_blank(),
+          panel.border = element_rect(color = "black", fill = NA),
+          panel.grid = element_line(color = "grey", size = 0.15),
+          legend.key = element_blank())
+  
+  # Same primary sex partner in past three months
+  output_dt <- rbindlist(l = lapply(output_list, function(x) as.data.table(x$long_dt %>% group_by(visit, same_psp) %>% summarise(prop_adh = mean(adh)))), idcol = "sim")
+  
+  obs_dt <- as.data.table(dt %>% group_by(visit, same_psp) %>% summarise(prop_adh = mean(adh)))
+  obs_dt[, visit := as.integer(gsub(pattern = "01", replacement = "", x = visit))]
+  
+  output_dt[, scenario := "Simulated"]
+  obs_dt[, scenario := "Observed"]
+  
+  plot_same_psp <- ggplot() +
+    geom_line(data = output_dt, aes(x = visit, y = prop_adh, group = interaction(sim, same_psp), color = same_psp, linetype = scenario), alpha = 0.15) +
+    geom_smooth(data = output_dt[visit <= 33], aes(x = visit, y = prop_adh, color = same_psp, linetype = scenario), method = "loess", formula = y ~ x, se = F) +
+    geom_line(data = obs_dt, aes(x = visit, y = prop_adh, color = same_psp, linetype = scenario)) +
+    coord_cartesian(ylim = c(0.5, 1)) +
+    labs(x = "Visit", y = "Proportion adherent", color = "Same primary partner\npast three months", linetype = "", title = paste0("Proportion adherent by same primary partner\nin prior 3 months across ", n_sims, " simulations")) +
+    theme(text = element_text(family = "Times"),
+          panel.background = element_blank(),
+          panel.border = element_rect(color = "black", fill = NA),
+          panel.grid = element_line(color = "grey", size = 0.15),
+          legend.key = element_blank())
+  
+  # Use of OCP at enrollment
+  output_dt <- rbindlist(l = lapply(output_list, function(x) as.data.table(x$long_dt %>% group_by(visit, bl_ocp) %>% summarise(prop_adh = mean(adh)))), idcol = "sim")
+  output_dt[, bl_ocp := ifelse(bl_ocp == 1, "OCP", "Other")]
+  
+  obs_dt <- as.data.table(dt %>% group_by(visit, fp_method) %>% summarise(prop_adh = mean(adh)))
+  setnames(obs_dt, old = "fp_method", new = "bl_ocp")
+  obs_dt[, visit := as.integer(gsub(pattern = "01", replacement = "", x = visit))]
+  
+  output_dt[, scenario := "Simulated"]
+  obs_dt[, scenario := "Observed"]
+  
+  plot_bl_ocp <- ggplot() +
+    geom_line(data = output_dt, aes(x = visit, y = prop_adh, group = interaction(sim, bl_ocp), color = bl_ocp, linetype = scenario), alpha = 0.15) +
+    geom_smooth(data = output_dt[visit <= 33], aes(x = visit, y = prop_adh, color = bl_ocp, linetype = scenario), method = "loess", formula = y ~ x, se = F) +
+    geom_line(data = obs_dt, aes(x = visit, y = prop_adh, color = bl_ocp, linetype = scenario)) +
+    coord_cartesian(ylim = c(0.5, 1)) +
+    labs(x = "Visit", y = "Proportion adherent", color = "Baseline contraceptive method", linetype = "", title = paste0("Proportion adherent by baseline contraceptive method\nacross ", n_sims, " simulations")) +
+    theme(text = element_text(family = "Times"),
+          panel.background = element_blank(),
+          panel.border = element_rect(color = "black", fill = NA),
+          panel.grid = element_line(color = "grey", size = 0.15),
+          legend.key = element_blank())
+  
+  # Site
+  output_dt <- rbindlist(l = lapply(output_list, function(x) as.data.table(x$long_dt %>% group_by(visit, site) %>% summarise(prop_adh = mean(adh)))), idcol = "sim")
+  
+  obs_dt <- as.data.table(dt %>% group_by(visit, site) %>% summarise(prop_adh = mean(adh)))
+  obs_dt[, visit := as.integer(gsub(pattern = "01", replacement = "", x = visit))]
+  
+  output_dt[, scenario := "Simulated"]
+  obs_dt[, scenario := "Observed"]
+  
+  plot_site <- ggplot() +
+    geom_line(data = output_dt, aes(x = visit, y = prop_adh, group = interaction(sim, site), color = site, linetype = scenario), alpha = 0.05) +
+    geom_smooth(data = output_dt[visit <= 33], aes(x = visit, y = prop_adh, color = site, linetype = scenario), method = "loess", formula = y ~ x, se = F) +
+    geom_line(data = obs_dt, aes(x = visit, y = prop_adh, color = site, linetype = scenario)) +
+    coord_cartesian(ylim = c(0.5, 1)) +
+    labs(x = "Visit", y = "Proportion adherent", color = "Site", linetype = "", title = paste0("Proportion adherent by site across ", n_sims, " simulations")) +
+    theme(text = element_text(family = "Times"),
+          panel.background = element_blank(),
+          panel.border = element_rect(color = "black", fill = NA),
+          panel.grid = element_line(color = "grey", size = 0.15),
+          legend.key = element_blank(),
+          strip.background = element_blank(),
+          legend.text = element_text(size = 10)) +
+    facet_grid(. ~ scenario)
+  
+  # Calendar time > 12 months since study activation
+  output_dt <- rbindlist(l = lapply(output_list, function(x) as.data.table(x$long_dt %>% group_by(visit, post_adh_intervention) %>% summarise(prop_adh = mean(adh)))), idcol = "sim")
+  output_dt[, post_adh_intervention := ifelse(post_adh_intervention == 1, "Yes", "No")]
+  
+  obs_dt <- as.data.table(dt %>% group_by(visit, post_adh_intervention) %>% summarise(prop_adh = mean(adh)))
+  obs_dt[, post_adh_intervention := ifelse(post_adh_intervention == 1, "Yes", "No")]
+  obs_dt[, visit := as.integer(gsub(pattern = "01", replacement = "", x = visit))]
+  
+  output_dt[, scenario := "Simulated"]
+  obs_dt[, scenario := "Observed"]
+  
+  plot_cal_time <- ggplot() +
+    geom_line(data = output_dt, aes(x = visit, y = prop_adh, group = interaction(sim, post_adh_intervention), color = post_adh_intervention, linetype = scenario), alpha = 0.15) +
+    geom_smooth(data = output_dt[visit <= 33], aes(x = visit, y = prop_adh, color = post_adh_intervention, linetype = scenario), method = "loess", formula = y ~ x, se = F) +
+    geom_line(data = obs_dt, aes(x = visit, y = prop_adh, color = post_adh_intervention, linetype = scenario)) +
+    coord_cartesian(ylim = c(0.5, 1)) +
+    labs(x = "Visit", y = "Proportion adherent", color = "Calendar time > 12 months\nsince study activation", linetype = "", title = paste0("Proportion adherent by calendar time across ", n_sims, " simulations")) +
+    theme(text = element_text(family = "Times"),
+          panel.background = element_blank(),
+          panel.border = element_rect(color = "black", fill = NA),
+          panel.grid = element_line(color = "grey", size = 0.15),
+          legend.key = element_blank())
+  
+  # Time on study > 3 months
+  output_dt <- rbindlist(l = lapply(output_list, function(x) as.data.table(x$long_dt %>% group_by(visit, time_study_gt_three_mos) %>% summarise(prop_adh = mean(adh)))), idcol = "sim")
+  output_dt[, time_study_gt_three_mos := ifelse(time_study_gt_three_mos == 1, "Yes", "No")]
+  
+  obs_dt <- as.data.table(dt %>% group_by(visit, time_study_gt_three_mos) %>% summarise(prop_adh = mean(adh)))
+  obs_dt[, time_study_gt_three_mos := ifelse(time_study_gt_three_mos == 1, "Yes", "No")]
+  obs_dt[, visit := as.integer(gsub(pattern = "01", replacement = "", x = visit))]
+  
+  output_dt[, scenario := "Simulated"]
+  obs_dt[, scenario := "Observed"]
+  
+  plot_time_study <- ggplot() +
+    geom_line(data = output_dt, aes(x = visit, y = prop_adh, group = interaction(sim, time_study_gt_three_mos), color = time_study_gt_three_mos), alpha = 0.15) +
+  geom_smooth(data = output_dt[visit <= 33], aes(x = visit, y = prop_adh, color = time_study_gt_three_mos), method = "loess", formula = y ~ x, se = F) +
+    geom_point(data = obs_dt, aes(x = visit, y = prop_adh, color = time_study_gt_three_mos)) +
+    coord_cartesian(ylim = c(0.5, 1)) +
+    labs(x = "Visit", y = "Proportion adherent", color = "On study > 3 months\n(obs. data in points)", title = paste0("Proportion adherent by time on study across ", n_sims, " simulations")) +
+    theme(text = element_text(family = "Times"),
+          panel.background = element_blank(),
+          panel.border = element_rect(color = "black", fill = NA),
+          panel.grid = element_line(color = "grey", size = 0.15),
+          legend.key = element_blank())
+  
+  plot_list <- list(plot_age, plot_site, plot_pknow, plot_same_psp, plot_bl_ocp, plot_ring_worries, plot_cal_time, plot_time_study)
+  names(plot_list) <- c("plot_age", "plot_site", "plot_pknow", "plot_same_psp", "plot_bl_ocp", "plot_ring_worries", "plot_cal_time", "plot_time_study")
+  
+  return(plot_list)
 }
 
 # Function to plot exposure rate ratio over time
@@ -912,12 +1047,8 @@ plot_hist_inf <- function(output_list, n_sims) {
 }
 
 # Function to create summary table of per-act relative risk values. All infections and acts are included.
-create_table_per_act_rr <- function(output_list, total = F) {
-  if(total) {
-    return(data.table(`Summary measure` = c("Minimum", "1st Quartile", "Median", "Mean", "3rd Quartile", "Maximum"), RR = as.numeric(unname(summary(sapply(output_list, function(x) round(x$ri_dt[arm == 1, mean(n_inf_total)/mean(n_acts_total)]/x$ri_dt[arm == 0, mean(n_inf_total)/mean(n_acts_total)], 2)))))))
-  } else {
-    return(data.table(`Summary measure` = c("Minimum", "1st Quartile", "Median", "Mean", "3rd Quartile", "Maximum"), RR = as.numeric(unname(summary(sapply(output_list, function(x) round(x$ri_dt[arm == 1, mean(n_inf)/mean(n_acts)]/x$ri_dt[arm == 0, mean(n_inf)/mean(n_acts)], 2)))))))
-  }
+create_table_per_act_rr <- function(output_list) {
+  return(data.table(`Summary measure` = c("Minimum", "1st Quartile", "Median", "Mean", "3rd Quartile", "Maximum"), RR = as.numeric(unname(summary(sapply(output_list, function(x) round(x$ri_dt[arm == 1, mean(n_inf)/mean(n_acts)]/x$ri_dt[arm == 0, mean(n_inf)/mean(n_acts)], 2)))))))
 }
 
 # Function to create summary table of per-act relative risk values. Infections and acts are censored at first infection per woman.
@@ -935,36 +1066,20 @@ create_table_per_act_rr_no_ring <- function(output_list) {
   return(data.table(`Summary measure` = c("Minimum", "1st Quartile", "Median", "Mean", "3rd Quartile", "Maximum"), RR = as.numeric(unname(summary(sapply(output_list, function(x) round(x$ri_dt[arm == 1, mean(n_inf_pre_ring)/mean(n_acts_total)]/x$ri_dt[arm == 0, mean(n_inf_pre_ring)/mean(n_acts_total)], 2)))))))
 }
 
-create_table_per_act_rr_vi_excl <- function(output_list, total = F) {
-  if(total) {
-    return(data.table(`Summary measure` = c("Minimum", "1st Quartile", "Median", "Mean", "3rd Quartile", "Maximum"), RR = as.numeric(unname(summary(sapply(output_list, function(x) round(x$ri_dt[arm == 1, mean(n_inf_total_vi_excl)/mean(n_acts_total_vi_excl)]/x$ri_dt[arm == 0, mean(n_inf_total_vi_excl)/mean(n_acts_total_vi_excl)], 2)))))))
-  } else {
-    return(data.table(`Summary measure` = c("Minimum", "1st Quartile", "Median", "Mean", "3rd Quartile", "Maximum"), RR = as.numeric(unname(summary(sapply(output_list, function(x) round(x$ri_dt[arm == 1, mean(n_inf_vi_excl)/mean(n_acts_vi_excl)]/x$ri_dt[arm == 0, mean(n_inf_vi_excl)/mean(n_acts_vi_excl)], 2)))))))
-  }
+create_table_per_act_rr_vi_excl <- function(output_list) {
+  return(data.table(`Summary measure` = c("Minimum", "1st Quartile", "Median", "Mean", "3rd Quartile", "Maximum"), RR = as.numeric(unname(summary(sapply(output_list, function(x) round(x$ri_dt[arm == 1, mean(n_inf_vi_excl)/mean(n_acts_vi_excl)]/x$ri_dt[arm == 0, mean(n_inf_vi_excl)/mean(n_acts_vi_excl)], 2)))))))
 }
 
-create_table_per_act_rr_vi_excl_adh <- function(output_list, total = F) {
-  if(total) {
-    return(data.table(`Summary measure` = c("Minimum", "1st Quartile", "Median", "Mean", "3rd Quartile", "Maximum"), RR = as.numeric(unname(summary(sapply(output_list, function(x) round(x$ri_dt[arm == 1, mean(n_inf_total_vi_excl_adh)/mean(n_acts_total_vi_excl_adh)]/x$ri_dt[arm == 0, mean(n_inf_total_vi_excl_adh)/mean(n_acts_total_vi_excl_adh)], 2)))))))
-  } else {
-    return(data.table(`Summary measure` = c("Minimum", "1st Quartile", "Median", "Mean", "3rd Quartile", "Maximum"), RR = as.numeric(unname(summary(sapply(output_list, function(x) round(x$ri_dt[arm == 1, mean(n_inf_vi_excl_adh)/mean(n_acts_vi_excl_adh)]/x$ri_dt[arm == 0, mean(n_inf_vi_excl_adh)/mean(n_acts_vi_excl_adh)], 2)))))))
-  }
+create_table_per_act_rr_vi_excl_adh <- function(output_list) {
+  return(data.table(`Summary measure` = c("Minimum", "1st Quartile", "Median", "Mean", "3rd Quartile", "Maximum"), RR = as.numeric(unname(summary(sapply(output_list, function(x) round(x$ri_dt[arm == 1, mean(n_inf_vi_excl_adh)/mean(n_acts_vi_excl_adh)]/x$ri_dt[arm == 0, mean(n_inf_vi_excl_adh)/mean(n_acts_vi_excl_adh)], 2)))))))
 }
 
-create_table_per_act_rr_any_ai <- function(output_list, total = F) {
-  if(total) {
-    return(data.table(`Summary measure` = c("Minimum", "1st Quartile", "Median", "Mean", "3rd Quartile", "Maximum"), RR = as.numeric(unname(summary(sapply(output_list, function(x) round(x$ri_dt[arm == 1, mean(n_inf_total_any_ai)/mean(n_acts_total_any_ai)]/x$ri_dt[arm == 0, mean(n_inf_total_any_ai)/mean(n_acts_total_any_ai)], 2)))))))
-  } else {
-    return(data.table(`Summary measure` = c("Minimum", "1st Quartile", "Median", "Mean", "3rd Quartile", "Maximum"), RR = as.numeric(unname(summary(sapply(output_list, function(x) round(x$ri_dt[arm == 1, mean(n_inf_any_ai)/mean(n_acts_any_ai)]/x$ri_dt[arm == 0, mean(n_inf_any_ai)/mean(n_acts_any_ai)], 2)))))))
-  }
+create_table_per_act_rr_any_ai <- function(output_list) {
+  return(data.table(`Summary measure` = c("Minimum", "1st Quartile", "Median", "Mean", "3rd Quartile", "Maximum"), RR = as.numeric(unname(summary(sapply(output_list, function(x) round(x$ri_dt[arm == 1, mean(n_inf_any_ai)/mean(n_acts_any_ai)]/x$ri_dt[arm == 0, mean(n_inf_any_ai)/mean(n_acts_any_ai)], 2)))))))
 }
 
-create_table_per_act_rr_any_ai_adh <- function(output_list, total = F) {
-  if(total) {
-    return(data.table(`Summary measure` = c("Minimum", "1st Quartile", "Median", "Mean", "3rd Quartile", "Maximum"), RR = as.numeric(unname(summary(sapply(output_list, function(x) round(x$ri_dt[arm == 1, mean(n_inf_total_any_ai_adh)/mean(n_acts_total_any_ai_adh)]/x$ri_dt[arm == 0, mean(n_inf_total_any_ai_adh)/mean(n_acts_total_any_ai_adh)], 2)))))))
-  } else {
-    return(data.table(`Summary measure` = c("Minimum", "1st Quartile", "Median", "Mean", "3rd Quartile", "Maximum"), RR = as.numeric(unname(summary(sapply(output_list, function(x) round(x$ri_dt[arm == 1, mean(n_inf_any_ai_adh)/mean(n_acts_any_ai_adh)]/x$ri_dt[arm == 0, mean(n_inf_any_ai_adh)/mean(n_acts_any_ai_adh)], 2)))))))
-  }
+create_table_per_act_rr_any_ai_adh <- function(output_list) {
+  return(data.table(`Summary measure` = c("Minimum", "1st Quartile", "Median", "Mean", "3rd Quartile", "Maximum"), RR = as.numeric(unname(summary(sapply(output_list, function(x) round(x$ri_dt[arm == 1, mean(n_inf_any_ai_adh)/mean(n_acts_any_ai_adh)]/x$ri_dt[arm == 0, mean(n_inf_any_ai_adh)/mean(n_acts_any_ai_adh)], 2)))))))
 }
 
 # Function to create summary table of hazard ratios
@@ -1171,8 +1286,3 @@ plot_inc_time <- function(output_list) {
           panel.grid = element_line(size = 0.05, colour = "black"),
           legend.key = element_blank())
 }
-
-
-
-
-

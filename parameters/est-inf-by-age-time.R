@@ -4,6 +4,7 @@
 
 library(data.table)
 library(dplyr)
+library(epiR)
 
 load("~/Documents/code/aspire/data-private/forKathrn.RData")
 dt <- as.data.table(d1)
