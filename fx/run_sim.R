@@ -259,7 +259,7 @@ run_sim <- function(lambda, cond_rr, c, s, rr_ai, p_rate_rr, base_male_hiv_incid
     hr_ub <- unname(summary(f_dt[, coxph(formula = Surv(time = (visit * 30)/365, event = hiv) ~ arm + strata(site))])$conf.int[4])
     
     if(reduce_output) {
-      output <- list(hr = hr, ri_dt = risk_inf_dt)
+      output <- list(hr = hr, prop_eff_dilution_non_adh = prop_eff_dilution_non_adh, prop_eff_dilution_ai = prop_eff_dilution_ai, ri_dt = risk_inf_dt, study_dt = f_dt, exposure_dt = exp_dt, inc_sim = inf_sim)
     } else {
       output <- list(hr = hr, hr_lb = hr_lb, hr_ub = hr_ub, prop_total_acts_ai = prop_total_acts_ai, prev_ai_sim = prev_ai_sim, prop_ai_sim = prop_ai_sim, prop_eff_dilution_non_adh = prop_eff_dilution_non_adh, prop_eff_dilution_ai = prop_eff_dilution_ai, ri_dt = risk_inf_dt, study_dt = f_dt, n_active_part = n_active_partnerships, male_dt = m_dt, b_dt = balanced_dt, n_part_hiv_pos_dt = n_part_hiv_dt, exposure_dt = exp_dt, cumulative_risk_dt = cum_risk_dt, risk_per_act_dt = acts_dt, adh_dt = adh_dt, long_dt = long_dt, inc_sim = inf_sim)
     }

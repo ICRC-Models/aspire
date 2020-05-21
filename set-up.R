@@ -30,7 +30,7 @@ sapply(source_files, function(x) source(x))
 suppressWarnings(load_data())
 
 ## Load parameters
-params_dt <- as.data.table(read_excel(paste0(wd, "/parameters/parameters.xlsx"), range = "A1:B27", col_names = T))
+params_dt <- as.data.table(read_excel(paste0(wd, "/parameters/parameters.xlsx"), range = "A1:B26", col_names = T))
 params <- lapply(params_dt[, name], function(x) { x = params_dt[name == x, value] })
 names(params) <- params_dt[, name]
 
